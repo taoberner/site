@@ -1,1 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Transport Occitanie</title>
 
+  <style>
+    body {
+      font-family: Arial;
+      padding: 30px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    input {
+      padding: 10px;
+      margin: 5px;
+      width: 200px;
+    }
+
+    button {
+      padding: 10px 15px;
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    #result {
+      margin-top: 20px;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🚍 Calculateur de trajet</h1>
+
+  <input id="from" placeholder="Départ (ex: PUJAUT)">
+  <input id="to" placeholder="Arrivée (ex: REVEL)">
+  <button onclick="lancerRecherche()">Rechercher</button>
+
+  <div id="result"></div>
+
+  <script src="scripts.js"></script>
+
+</body>
+</html>
