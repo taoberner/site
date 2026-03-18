@@ -1,254 +1,128 @@
-let stops = [];
-let routes = [];
-let trips = [];
-let stopTimes = [];
-let ready = false;
+const GTFS = {
+  stops: [],
+  stopTimes: [],
+  trips: [],
+  routes: []
+};
 
-function parseCSV(text) {
+// Charger les fichiers GTFS
+async function loadGTFS() {
+  GTFS.stops = await loadCSV("gtfs/stops.txt");
+  GTFS.stopTimes = await loadCSV("gtfs/stop_times.txt");
+  GTFS.trips = await loadCSV("gtfs/trips.txt");
+  GTFS.routes = await loadCSV("gtfs/routes.txt");
+
+  console.log("GTFS chargé");
+}
+
+// Lire CSV
+async function loadCSV(path) {
+  const res = await fetch(path);
+  const text = await res.text();
+
   const lines = text.trim().split("\n");
-  if (lines.length < 2) return [];
-
-  const headers = splitCSVLine(lines[0]);
+  const headers = lines[0].split(",");
 
   return lines.slice(1).map(line => {
-    const values = splitCSVLine(line);
-    const obj = {};
-    headers.forEach((header, i) => {
-      obj[header] = values[i] ?? "";
-    });
+    const values = line.split(",");
+    let obj = {};
+    headers.forEach((h, i) => obj[h] = values[i]);
     return obj;
   });
 }
 
-function splitCSVLine(line) {
-  const result = [];
-  let current = "";
-  let insideQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    const next = line[i + 1];
-
-    if (char === '"') {
-      if (insideQuotes && next === '"') {
-        current += '"';
-        i++;
-      } else {
-        insideQuotes = !insideQuotes;
-      }
-    } else if (char === "," && !insideQuotes) {
-      result.push(current);
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-
-  result.push(current);
-  return result;
-}
-
-async function loadFile(path) {
-  const response = await fetch(path);
-  if (!response.ok) {
-    throw new Error(`Erreur chargement ${path} : ${response.status}`);
-  }
-  const text = await response.text();
-  return parseCSV(text);
-}
-
-async function loadGTFS() {
-  const status = document.getElementById("status");
-
-  try {
-    status.innerHTML = "Chargement de <strong>stops.txt</strong>...";
-    stops = await loadFile("./gtfs/stops.txt");
-
-    status.innerHTML = "Chargement de <strong>routes.txt</strong>...";
-    routes = await loadFile("./gtfs/routes.txt");
-
-    status.innerHTML = "Chargement de <strong>trips.txt</strong>...";
-    trips = await loadFile("./gtfs/trips.txt");
-
-    status.innerHTML = "Chargement de <strong>stop_times.txt</strong>...";
-    stopTimes = await loadFile("./gtfs/stop_times.txt");
-
-    ready = true;
-    status.innerHTML = `<span class="ok">✅ Données GTFS chargées</span> — ${stops.length} arrêts, ${routes.length} lignes, ${trips.length} trajets`;
-    console.log("GTFS chargé");
-  } catch (error) {
-    console.error(error);
-    status.innerHTML = `<span class="error">❌ Erreur de chargement :</span> ${error.message}`;
-  }
-}
-
-function normalize(text) {
-  return (text || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
-function findStopsByName(query) {
-  const q = normalize(query);
-  if (!q) return [];
-
-  return stops.filter(stop =>
-    normalize(stop.stop_name).includes(q)
+// Trouver un stop par nom
+function findStopByName(name) {
+  return GTFS.stops.find(s =>
+    s.stop_name.toLowerCase().includes(name.toLowerCase())
   );
 }
 
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+// 🔥 RECHERCHE RÉELLE
+async function lancerRecherche() {
 
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) ** 2;
+  const fromInput = document.getElementById("inputFrom").value;
+  const toInput = document.getElementById("inputTo").value;
 
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function toRad(deg) {
-  return deg * Math.PI / 180;
-}
-
-function estimateDuration(distanceKm) {
-  const avgSpeedKmH = 25;
-  return Math.round((distanceKm / avgSpeedKmH) * 60);
-}
-
-function getTripsForStop(stopId) {
-  const relatedStopTimes = stopTimes.filter(st => st.stop_id === stopId);
-  const tripIds = [...new Set(relatedStopTimes.map(st => st.trip_id))];
-  return trips.filter(trip => tripIds.includes(trip.trip_id));
-}
-
-function getRouteNamesForStop(stopId) {
-  const relatedTrips = getTripsForStop(stopId);
-  const routeIds = [...new Set(relatedTrips.map(t => t.route_id))];
-
-  return routes
-    .filter(route => routeIds.includes(route.route_id))
-    .map(route => ({
-      id: route.route_id,
-      shortName: route.route_short_name || "",
-      longName: route.route_long_name || ""
-    }));
-}
-
-function findCommonRoutes(stopId1, stopId2) {
-  const routes1 = getRouteNamesForStop(stopId1).map(r => r.id);
-  const routes2 = getRouteNamesForStop(stopId2).map(r => r.id);
-  const commonIds = routes1.filter(id => routes2.includes(id));
-
-  return routes.filter(r => commonIds.includes(r.route_id));
-}
-
-function pickBestStop(matches, originalText) {
-  if (!matches.length) return null;
-
-  const exact = matches.find(
-    stop => normalize(stop.stop_name) === normalize(originalText)
-  );
-  if (exact) return exact;
-
-  return matches[0];
-}
-
-function renderResult(html) {
-  document.getElementById("result").innerHTML = html;
-}
-
-function findRoute() {
-  if (!ready) {
-    alert("⏳ Les données sont encore en cours de chargement.");
-    return;
-  }
-
-  const fromInput = document.getElementById("from").value.trim();
-  const toInput = document.getElementById("to").value.trim();
-
-  if (!fromInput || !toInput) {
-    renderResult(`
-      <div class="result-title">Résultat :</div>
-      <div class="line">⚠️ Merci de remplir le départ et l'arrivée.</div>
-    `);
-    return;
-  }
-
-  const fromMatches = findStopsByName(fromInput);
-  const toMatches = findStopsByName(toInput);
-
-  const fromStop = pickBestStop(fromMatches, fromInput);
-  const toStop = pickBestStop(toMatches, toInput);
+  const fromStop = findStopByName(fromInput);
+  const toStop = findStopByName(toInput);
 
   if (!fromStop || !toStop) {
-    renderResult(`
-      <div class="result-title">Résultat :</div>
-      <div class="line">❌ Arrêt introuvable.</div>
-      <div class="small">Départ trouvé : ${fromMatches.length} correspondance(s)</div>
-      <div class="small">Arrivée trouvée : ${toMatches.length} correspondance(s)</div>
-    `);
+    alert("Arrêt introuvable");
     return;
   }
 
-  const lat1 = parseFloat(fromStop.stop_lat);
-  const lon1 = parseFloat(fromStop.stop_lon);
-  const lat2 = parseFloat(toStop.stop_lat);
-  const lon2 = parseFloat(toStop.stop_lon);
+  // Trouver trajets qui passent par les 2 stops
+  const tripsFrom = GTFS.stopTimes.filter(st => st.stop_id === fromStop.stop_id);
+  const tripsTo = GTFS.stopTimes.filter(st => st.stop_id === toStop.stop_id);
 
-  if ([lat1, lon1, lat2, lon2].some(v => Number.isNaN(v))) {
-    renderResult(`
-      <div class="result-title">Résultat :</div>
-      <div class="line">❌ Coordonnées invalides dans les données GTFS.</div>
-    `);
+  let trajet = null;
+
+  tripsFrom.forEach(f => {
+    tripsTo.forEach(t => {
+      if (f.trip_id === t.trip_id && f.stop_sequence < t.stop_sequence) {
+        trajet = {
+          trip_id: f.trip_id,
+          depart: f.departure_time,
+          arrivee: t.arrival_time
+        };
+      }
+    });
+  });
+
+  if (!trajet) {
+    alert("Aucun trajet trouvé");
     return;
   }
 
-  const distance = haversine(lat1, lon1, lat2, lon2);
-  const duration = estimateDuration(distance);
-  const commonRoutes = findCommonRoutes(fromStop.stop_id, toStop.stop_id);
+  // Trouver ligne
+  const trip = GTFS.trips.find(t => t.trip_id === trajet.trip_id);
+  const route = GTFS.routes.find(r => r.route_id === trip.route_id);
 
-  renderResult(`
-    <div class="result-title">Résultat :</div>
+  // Calcul durée
+  function timeToMin(t) {
+    const [h,m,s] = t.split(":");
+    return parseInt(h)*60 + parseInt(m);
+  }
 
-    <div class="line">🛑 <strong>${fromStop.stop_name}</strong></div>
-    <div class="line">➡️ <strong>${toStop.stop_name}</strong></div>
+  const duration = timeToMin(trajet.arrivee) - timeToMin(trajet.depart);
 
-    <div class="line">📏 Distance estimée : <strong>${distance.toFixed(2)} km</strong></div>
-    <div class="line">⏱️ Durée estimée : <strong>${duration} min</strong></div>
+  const result = {
+    durationMin: duration,
+    walkMin: 2,
+    transfers: 0,
+    depTime: trajet.depart,
+    arrTime: trajet.arrivee,
+    co2Bus: 0.3,
+    co2Car: 1.2,
+    sections: [
+      {
+        type: "bus",
+        time: trajet.depart,
+        title: "🚌 Ligne " + route.route_short_name,
+        desc: fromStop.stop_name
+      },
+      {
+        type: "end",
+        time: trajet.arrivee,
+        title: "📍 Arrivée",
+        desc: toStop.stop_name
+      }
+    ]
+  };
 
-    ${
-      commonRoutes.length
-        ? `
-          <div class="line">🚌 Ligne(s) commune(s) possible(s) :</div>
-          ${commonRoutes
-            .slice(0, 5)
-            .map(route => `
-              <div class="line">
-                • <strong>${route.route_short_name || "Sans numéro"}</strong>
-                ${route.route_long_name ? `— ${route.route_long_name}` : ""}
-              </div>
-            `)
-            .join("")}
-        `
-        : `
-          <div class="line">🔄 Aucune ligne directe détectée entre ces deux arrêts.</div>
-          <div class="small">Il faudra probablement une ou plusieurs correspondances.</div>
-        `
-    }
+  state.currentJourneys = [result];
 
-    <hr style="margin:20px 0;border:none;border-top:1px solid #ddd;" />
+  renderResults(
+    [result],
+    fromStop.stop_name,
+    toStop.stop_name,
+    new Date().toISOString().split('T')[0],
+    trajet.depart
+  );
 
-    <div class="small">stop_id départ : ${fromStop.stop_id}</div>
-    <div class="small">stop_id arrivée : ${toStop.stop_id}</div>
-  `);
+  showPage("results");
 }
 
-window.findRoute = findRoute;
-loadGTFS();
+// Charger au démarrage
+window.addEventListener("DOMContentLoaded", loadGTFS);
