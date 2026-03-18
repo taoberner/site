@@ -1,281 +1,907 @@
-:root {
-  --green: #1db37e;
-  --green-dark: #159b68;
-  --green-light: #e8f9f2;
-  --ink: #0d1f1a;
-  --ink-mid: #2e4a40;
-  --muted: #7a9a8e;
-  --border: #d4ede4;
-  --bg: #f7fbf9;
-  --white: #ffffff;
-  --accent: #f0a500;
-  --red-soft: #ff6b6b;
-  --radius: 16px;
-  --shadow: 0 4px 24px rgba(13,31,26,0.08);
-  --shadow-lg: 0 12px 48px rgba(13,31,26,0.14);
+/* =============================================================
+   liO Smart Move — scripts.js
+   GTFS complet : itinéraires, horaires, carte réseau, CO2
+   ============================================================= */
+
+// ── ÉTAT GLOBAL ────────────────────────────────────────────────
+const state = {
+  loaded: false,
+  loading: false,
+  stops: {},           // stop_id → {id, name, lat, lon}
+  stopsByName: [],     // tableau trié pour autocomplete
+  routes: {},          // route_id → {shortName, longName, color, textColor, type}
+  trips: {},           // trip_id → {routeId, serviceId, headsign}
+  stopTimes: {},       // trip_id → [{stopId, arrivalSec, departureSec, seq}]
+  stopToTrips: {},     // stop_id → Set<trip_id>
+  routeToStops: {},    // route_id → Set<stop_id>
+  calendar: {},        // service_id → {days, startDate, endDate}
+  calendarDates: {},   // service_id → {date: 'added'|'removed'}
+  currentJourneys: [],
+  fromStop: null,
+  toStop: null,
+  selectedProfile: 'standard',
+  map: null,
+  mapInitialized: false,
+  mapLayers: { route: [], markers: [], network: [] },
+  networkVisible: false
+};
+
+const GTFS_PATH = 'gtfs/';
+const CO2_BUS = 89;    // g/km
+const CO2_CAR = 193;   // g/km
+// Couleurs par type de ligne GTFS (route_type)
+const ROUTE_TYPE_COLORS = { 0:'#e74c3c', 1:'#3498db', 2:'#2ecc71', 3:'#5b8fff', 4:'#9b59b6', 700:'#5b8fff' };
+
+// ── NAVIGATION ─────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pg = document.getElementById('page-' + id);
+  if (pg) pg.classList.add('active');
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  const navMap = { home:'nav-home', search:'nav-search', results:'nav-search',
+                   horaires:'nav-horaires', map:'nav-map', access:'nav-access', about:'nav-about' };
+  const el = document.getElementById(navMap[id]);
+  if (el) el.classList.add('active');
+  window.scrollTo(0, 0);
+  if (id === 'map') setTimeout(initMap, 80);
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); font-size: 16px; line-height: 1.6; }
-h1,h2,h3,h4 { font-family: 'Syne', sans-serif; line-height: 1.15; }
 
-/* NAV */
-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(247,251,249,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; }
-.nav-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.25rem; color: var(--ink); cursor: pointer; }
-.nav-logo span { color: var(--green); }
-.nav-links { display: flex; gap: 8px; list-style: none; }
-.nav-links a { text-decoration: none; color: var(--ink-mid); font-size: 0.875rem; font-weight: 500; padding: 8px 16px; border-radius: 8px; transition: all 0.2s; cursor: pointer; }
-.nav-links a:hover, .nav-links a.active { background: var(--green-light); color: var(--green-dark); }
-.nav-cta { background: var(--green) !important; color: var(--white) !important; }
-.nav-cta:hover { background: var(--green-dark) !important; }
-
-/* PAGES */
-.page { display: none; padding-top: 64px; min-height: 100vh; }
-.page.active { display: block; }
-
-/* BUTTONS */
-.btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: 12px; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.95rem; border: none; cursor: pointer; transition: all 0.22s; text-decoration: none; }
-.btn-primary { background: var(--green); color: var(--white); box-shadow: 0 4px 20px rgba(29,179,126,0.35); }
-.btn-primary:hover { background: var(--green-dark); transform: translateY(-2px); }
-.btn-secondary { background: var(--white); color: var(--ink); border: 2px solid var(--border); }
-.btn-secondary:hover { border-color: var(--green); color: var(--green); }
-.btn-ghost { background: transparent; color: var(--green); border: 2px solid var(--green); }
-.btn-ghost:hover { background: var(--green); color: var(--white); }
-.btn-sm { padding: 10px 20px; font-size: 0.85rem; }
-
-/* HERO */
-.hero { min-height: calc(100vh - 64px); display: flex; align-items: center; padding: 80px 40px; background: linear-gradient(135deg, #f7fbf9 0%, #e8f9f2 50%, #f0faf5 100%); position: relative; overflow: hidden; }
-.hero::before { content: ''; position: absolute; top: -100px; right: -100px; width: 600px; height: 600px; background: radial-gradient(circle, rgba(29,179,126,0.12) 0%, transparent 70%); border-radius: 50%; animation: pulse 6s ease-in-out infinite; pointer-events: none; }
-@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
-.hero-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; width: 100%; }
-.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--green-light); color: var(--green-dark); border: 1px solid rgba(29,179,126,0.3); padding: 6px 14px; border-radius: 100px; font-size: 0.8rem; font-weight: 500; margin-bottom: 20px; }
-.hero-badge .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 2s infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-.hero h1 { font-size: 3.2rem; font-weight: 800; margin-bottom: 20px; letter-spacing: -0.02em; }
-.hero h1 span { color: var(--green); }
-.hero-sub { font-size: 1.1rem; color: var(--ink-mid); margin-bottom: 36px; max-width: 460px; }
-.hero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
-.hero-visual { background: var(--white); border-radius: 24px; box-shadow: var(--shadow-lg); padding: 28px; border: 1px solid var(--border); }
-.hero-visual-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 16px; font-weight: 500; }
-.data-status { display: flex; flex-direction: column; gap: 10px; }
-.data-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); font-size: 0.85rem; }
-.di-icon { font-size: 1.1rem; }
-.di-label { font-weight: 500; flex: 1; }
-.di-val { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--green); font-size: 0.9rem; }
-.di-val.loading { color: var(--muted); }
-
-/* SECTIONS */
-.section { padding: 80px 40px; }
-.section-inner { max-width: 1100px; margin: 0 auto; }
-.section-label { display: inline-block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--green); font-weight: 600; margin-bottom: 12px; }
-.section-title { font-size: 2.2rem; font-weight: 800; margin-bottom: 16px; }
-.promises { padding: 60px 40px; background: var(--white); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-.promises-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1100px; margin: 0 auto; }
-.promise-card { padding: 32px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg); transition: all 0.25s; }
-.promise-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: var(--green); }
-.promise-icon { font-size: 2rem; margin-bottom: 16px; }
-.promise-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
-.promise-card p { font-size: 0.9rem; color: var(--ink-mid); }
-.how-steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 32px; margin-top: 48px; }
-.how-step { text-align: center; position: relative; }
-.how-step::after { content: '→'; position: absolute; right: -24px; top: 20px; font-size: 1.5rem; color: var(--green); opacity: 0.4; }
-.how-step:last-child::after { display: none; }
-.how-number { width: 52px; height: 52px; border-radius: 16px; background: var(--green); color: var(--white); font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 4px 16px rgba(29,179,126,0.35); }
-.how-step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
-.how-step p { font-size: 0.875rem; color: var(--ink-mid); }
-
-/* FORMS */
-.search-page, .horaires-page, .access-page, .about-page { padding: 40px; }
-.search-inner, .horaires-inner, .access-inner, .about-inner { max-width: 760px; margin: 0 auto; }
-.about-inner { max-width: 900px; }
-.search-inner h1, .horaires-inner h1 { font-size: 2.2rem; font-weight: 800; margin-bottom: 8px; }
-.search-inner > p, .horaires-inner > p { color: var(--muted); margin-bottom: 36px; }
-.form-card { background: var(--white); border-radius: 20px; border: 1px solid var(--border); padding: 36px; box-shadow: var(--shadow); margin-bottom: 20px; }
-.form-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 20px; color: var(--ink-mid); text-transform: uppercase; letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.form-group { display: flex; flex-direction: column; gap: 6px; position: relative; }
-.form-group label { font-size: 0.82rem; font-weight: 600; color: var(--ink-mid); }
-.form-group input, .form-group select { padding: 12px 16px; border-radius: 10px; border: 1.5px solid var(--border); font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--ink); background: var(--bg); outline: none; transition: border-color 0.2s; }
-.form-group input:focus { border-color: var(--green); }
-
-/* AUTOCOMPLETE */
-.autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1.5px solid var(--green); border-radius: 10px; box-shadow: var(--shadow-lg); z-index: 500; max-height: 280px; overflow-y: auto; margin-top: 4px; }
-.autocomplete-item { padding: 10px 16px; font-size: 0.88rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.15s; display: flex; flex-direction: column; gap: 2px; }
-.autocomplete-item:hover { background: var(--green-light); color: var(--green-dark); }
-.autocomplete-item:last-child { border-bottom: none; }
-.ac-name { font-weight: 500; display: flex; align-items: center; gap: 6px; }
-.ac-detail { font-size: 0.75rem; color: var(--muted); padding-left: 20px; }
-
-/* CHIPS */
-.pref-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-.pref-chip { padding: 8px 16px; border-radius: 100px; border: 1.5px solid var(--border); background: var(--white); font-size: 0.84rem; cursor: pointer; transition: all 0.2s; }
-.pref-chip:hover { border-color: var(--green); color: var(--green); }
-.pref-chip.selected { background: var(--green-light); border-color: var(--green); color: var(--green-dark); font-weight: 500; }
-.profile-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
-.profile-card { padding: 16px; border-radius: 14px; border: 1.5px solid var(--border); cursor: pointer; text-align: center; transition: all 0.2s; background: var(--white); }
-.profile-card:hover { border-color: var(--green); }
-.profile-card.selected { background: var(--green-light); border-color: var(--green); }
-.profile-card .profile-icon { font-size: 1.6rem; margin-bottom: 6px; }
-.profile-card p { font-size: 0.82rem; font-weight: 600; }
-
-/* LOADING */
-.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(247,251,249,0.95); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; gap: 20px; }
-.loading-overlay.active { display: flex; }
-.loading-spinner { width: 56px; height: 56px; border: 4px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading-text { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--green-dark); font-size: 1.1rem; }
-.loading-sub { font-size: 0.85rem; color: var(--muted); }
-.loading-progress { width: 280px; height: 4px; background: var(--border); border-radius: 100px; overflow: hidden; }
-.loading-progress-bar { height: 100%; background: var(--green); border-radius: 100px; transition: width 0.3s; width: 0%; }
-
-.data-loader { position: fixed; top: 64px; left: 0; right: 0; z-index: 999; background: var(--ink); color: white; padding: 10px 24px; display: flex; align-items: center; gap: 12px; font-size: 0.85rem; transform: translateY(-100%); transition: transform 0.3s; }
-.data-loader.visible { transform: translateY(0); }
-.data-loader-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.2); border-radius: 100px; overflow: hidden; }
-.data-loader-fill { height: 100%; background: var(--green); border-radius: 100px; transition: width 0.5s; }
-
-/* RESULTS */
-.results-page { padding: 40px; }
-.results-inner { max-width: 1100px; margin: 0 auto; }
-.results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
-.results-header h1 { font-size: 1.8rem; font-weight: 800; }
-.results-route { font-size: 0.95rem; color: var(--muted); margin-top: 4px; }
-.gtfs-badge { display:inline-flex;align-items:center;gap:6px;background:#e8f0ff;color:#2c5ae9;border-radius:8px;padding:4px 10px;font-size:0.72rem;font-weight:600; }
-.results-grid { display: grid; grid-template-columns: 1fr 380px; gap: 28px; }
-.main-result { background: var(--white); border-radius: 20px; border: 1px solid var(--border); padding: 32px; box-shadow: var(--shadow); }
-.result-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--green); color: white; border-radius: 8px; padding: 4px 12px; font-size: 0.78rem; font-weight: 600; margin-bottom: 20px; }
-.result-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 28px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
-.stat-block { text-align: center; }
-.stat-val { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; color: var(--ink); }
-.stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
-.timeline { display: flex; flex-direction: column; }
-.tl-item { display: flex; gap: 20px; padding-bottom: 20px; }
-.tl-left { display: flex; flex-direction: column; align-items: center; width: 40px; flex-shrink: 0; }
-.tl-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--green); border: 3px solid var(--white); box-shadow: 0 0 0 2px var(--green); flex-shrink: 0; margin-top: 4px; }
-.tl-dot.walk { background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
-.tl-dot.end { background: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
-.tl-line { flex: 1; width: 2px; background: var(--border); margin-top: 4px; }
-.tl-item:last-child .tl-line { display: none; }
-.tl-content h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 2px; }
-.tl-content p { font-size: 0.8rem; color: var(--muted); }
-.tl-time { font-size: 0.78rem; font-weight: 600; color: var(--green); background: var(--green-light); padding: 2px 8px; border-radius: 6px; display: inline-block; margin-top: 4px; }
-.sidebar-results { display: flex; flex-direction: column; gap: 20px; }
-.why-box { background: var(--green-light); border-radius: 16px; padding: 20px; border: 1px solid rgba(29,179,126,0.2); }
-.why-box h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 10px; color: var(--green-dark); }
-.why-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; font-size: 0.85rem; color: var(--green-dark); }
-.why-item::before { content: '✓'; font-weight: 700; color: var(--green); flex-shrink: 0; }
-.eco-box { background: var(--white); border-radius: 16px; padding: 20px; border: 1px solid var(--border); }
-.eco-box h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 14px; }
-.eco-compare { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.eco-col { text-align: center; flex: 1; }
-.eco-val { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; }
-.eco-val.green { color: var(--green); }
-.eco-val.red { color: var(--red-soft); }
-.eco-col p { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
-.eco-divider { color: var(--muted); font-size: 1.2rem; }
-.eco-saved { margin-top: 12px; background: var(--green-light); border-radius: 10px; padding: 10px; text-align: center; font-size: 0.82rem; color: var(--green-dark); font-weight: 500; }
-.alt-title { font-size: 0.85rem; font-weight: 700; color: var(--ink-mid); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
-.alt-cards { display: flex; flex-direction: column; gap: 10px; }
-.alt-card { background: var(--white); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; }
-.alt-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
-.alt-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.alt-card-header h4 { font-size: 0.88rem; font-weight: 700; }
-.alt-tag { font-size: 0.72rem; padding: 3px 10px; border-radius: 100px; font-weight: 600; }
-.tag-fast { background: #fff0f0; color: #c0392b; }
-.tag-eco { background: var(--green-light); color: var(--green-dark); }
-.tag-acc { background: #f0f4ff; color: #2c5ae9; }
-.alt-stats { display: flex; gap: 12px; font-size: 0.78rem; color: var(--muted); }
-.result-actions { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; }
-.result-actions .btn { font-size: 0.82rem; padding: 10px 18px; }
-.no-result { text-align: center; padding: 60px 20px; }
-.no-result .no-icon { font-size: 3rem; margin-bottom: 16px; }
-.no-result h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
-.no-result p { color: var(--muted); margin-bottom: 20px; }
-
-/* HORAIRES */
-.horaires-table-wrap { background: var(--white); border-radius: 20px; border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); }
-.horaires-table { width: 100%; border-collapse: collapse; }
-.horaires-table th { background: var(--ink); color: white; padding: 14px 18px; text-align: left; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.05em; }
-.horaires-table td { padding: 12px 18px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
-.horaires-table tr:last-child td { border-bottom: none; }
-.horaires-table tr:hover td { background: var(--green-light); }
-.badge-ligne { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #e8f0ff; color: #2c5ae9; }
-.time-pill { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; background: var(--green-light); color: var(--green-dark); }
-.time-pill.past { background: #f0f0f0; color: var(--muted); }
-.time-pill.next { background: var(--green); color: white; }
-
-/* MAP */
-.map-page { padding: 40px; }
-.map-inner { max-width: 1100px; margin: 0 auto; }
-.map-layout { display: grid; grid-template-columns: 280px 1fr; gap: 24px; margin-top: 24px; }
-.map-sidebar { display: flex; flex-direction: column; gap: 16px; }
-.map-panel { background: var(--white); border-radius: 16px; border: 1px solid var(--border); padding: 20px; }
-.map-panel h3 { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 14px; }
-.map-info-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
-.map-info-item:last-child { border-bottom: none; }
-.map-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-#leaflet-map { width: 100%; height: 540px; border-radius: 20px; border: 1px solid var(--border); box-shadow: var(--shadow); }
-.filter-check { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 0.84rem; cursor: pointer; }
-.filter-check input { accent-color: var(--green); }
-.map-legend { display: flex; flex-wrap: wrap; gap: 10px; }
-.legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--ink-mid); }
-.legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-
-/* ACCESSIBILITY */
-.toggle-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 20px; }
-.toggle-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: var(--bg); border-radius: 12px; border: 1.5px solid var(--border); }
-.toggle-label { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 500; }
-.toggle-switch { width: 44px; height: 24px; background: var(--border); border-radius: 100px; position: relative; cursor: pointer; transition: background 0.25s; flex-shrink: 0; }
-.toggle-switch.on { background: var(--green); }
-.toggle-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: white; border-radius: 50%; transition: left 0.25s; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
-.toggle-switch.on::after { left: 23px; }
-.profiles-grid-acc { display: grid; grid-template-columns: repeat(2,1fr); gap: 20px; margin-top: 20px; }
-.profile-detail-card { background: var(--white); border-radius: 16px; border: 1.5px solid var(--border); padding: 24px; transition: all 0.25s; }
-.profile-detail-card:hover { border-color: var(--green); box-shadow: var(--shadow); }
-.pd-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-.pd-icon { width: 48px; height: 48px; border-radius: 14px; background: var(--green-light); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
-.pd-title { font-weight: 700; font-size: 1rem; }
-.pd-sub { font-size: 0.8rem; color: var(--muted); }
-.profile-features { list-style: none; }
-.profile-features li { padding: 6px 0; font-size: 0.85rem; color: var(--ink-mid); display: flex; align-items: center; gap: 8px; }
-.profile-features li::before { content: '•'; color: var(--green); font-weight: 800; font-size: 1rem; }
-
-/* ABOUT */
-.about-hero { text-align: center; padding: 60px 0 40px; }
-.about-hero h1 { font-size: 2.8rem; font-weight: 800; margin-bottom: 16px; }
-.about-section { margin-bottom: 48px; }
-.about-section h2 { font-size: 1.4rem; font-weight: 800; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--green-light); }
-.values-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; }
-.value-card { padding: 20px; background: var(--white); border-radius: 14px; border: 1px solid var(--border); display: flex; gap: 14px; }
-.value-icon { font-size: 1.5rem; flex-shrink: 0; }
-.value-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
-.value-card p { font-size: 0.84rem; color: var(--ink-mid); }
-.tech-pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-.tech-pill { padding: 8px 18px; background: var(--white); border: 1.5px solid var(--border); border-radius: 100px; font-size: 0.85rem; font-weight: 500; }
-
-/* MISC */
-.divider { height: 1px; background: var(--border); margin: 0 40px; }
-footer { background: var(--ink); color: rgba(255,255,255,0.7); padding: 40px; margin-top: 60px; }
-.footer-inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
-.footer-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; color: var(--white); }
-.footer-logo span { color: var(--green); }
-.footer-info { font-size: 0.82rem; text-align: center; }
-.info-box { background: #fffbf0; border: 1px solid #ffe4a0; border-radius: 12px; padding: 16px 20px; display: flex; align-items: flex-start; gap: 12px; margin-top: 20px; }
-.info-box p { font-size: 0.875rem; color: #8a6200; }
-.notif { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; padding: 14px 20px; border-radius: 12px; font-size: 0.88rem; font-weight: 500; z-index: 9999; box-shadow: var(--shadow-lg); max-width: 340px; animation: slideIn 0.3s ease; }
-.notif.green { background: var(--green-dark); }
-.notif.red { background: #c0392b; }
-@keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
-body.large-text { font-size: 19px; }
-body.high-contrast { filter: contrast(1.4); }
-
-@media (max-width: 768px) {
-  nav { padding: 0 20px; }
-  .nav-links { display: none; }
-  .hero-inner, .results-grid, .map-layout, .profiles-grid-acc, .values-grid { grid-template-columns: 1fr; }
-  .hero { padding: 40px 20px; }
-  .hero h1 { font-size: 2.2rem; }
-  .promises-grid, .how-steps { grid-template-columns: 1fr; }
-  .section { padding: 48px 20px; }
-  .result-stats { grid-template-columns: repeat(2,1fr); }
-  .form-row { grid-template-columns: 1fr; }
+function showNotif(msg, type = '') {
+  const n = document.createElement('div');
+  n.className = 'notif' + (type ? ' ' + type : '');
+  n.textContent = msg;
+  document.body.appendChild(n);
+  setTimeout(() => n.remove(), 4500);
 }
+
+// ── CHARGEMENT GTFS ────────────────────────────────────────────
+async function loadGTFS() {
+  if (state.loaded || state.loading) return;
+  state.loading = true;
+
+  const loader  = document.getElementById('dataLoader');
+  const fill    = document.getElementById('dataLoaderFill');
+  const pctEl   = document.getElementById('dataLoaderPct');
+  const txtEl   = document.getElementById('dataLoaderText');
+  loader.classList.add('visible');
+
+  const setP = (p, label) => {
+    fill.style.width = p + '%';
+    pctEl.textContent = p + '%';
+    if (label) txtEl.textContent = label;
+  };
+
+  const files = [
+    { file: 'stops.txt',          label: '📍 Arrêts…',      weight: 15, fn: parseStops },
+    { file: 'routes.txt',         label: '🛣️ Lignes…',      weight: 10, fn: parseRoutes },
+    { file: 'trips.txt',          label: '📅 Voyages…',     weight: 15, fn: parseTrips },
+    { file: 'calendar.txt',       label: '📆 Calendrier…',  weight: 5,  fn: parseCalendar,      optional: true },
+    { file: 'calendar_dates.txt', label: '📆 Exceptions…',  weight: 5,  fn: parseCalendarDates, optional: true },
+    { file: 'stop_times.txt',     label: '⏱️ Horaires…',   weight: 50, fn: parseStopTimes }
+  ];
+
+  let progress = 0;
+  try {
+    for (const f of files) {
+      setP(progress, '📡 Chargement ' + f.label);
+      try {
+        const raw = await fetchGTFS(f.file);
+        f.fn(raw);
+      } catch (e) {
+        if (!f.optional) throw e;
+      }
+      progress += f.weight;
+      setP(progress);
+    }
+
+    buildRouteToStops();
+    state.loaded = true;
+
+    // Mise à jour stats accueil
+    setP(100, '✅ Données liO chargées !');
+    updateStats();
+    setTimeout(() => loader.classList.remove('visible'), 1800);
+    showNotif('✅ ' + formatN(Object.keys(state.stops).length) + ' arrêts · ' +
+              formatN(Object.keys(state.routes).length) + ' lignes chargés', 'green');
+  } catch (err) {
+    console.error('GTFS load error:', err);
+    loader.classList.remove('visible');
+    showNotif('❌ Erreur chargement GTFS — vérifiez le dossier gtfs/', 'red');
+    ['stat-stops','stat-routes','stat-trips','stat-times'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = 'N/A'; el.style.color = 'var(--red-soft)'; }
+    });
+  }
+  state.loading = false;
+}
+
+async function fetchGTFS(filename) {
+  const r = await fetch(GTFS_PATH + filename + '?_=' + Date.now());
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + filename);
+  return r.text();
+}
+
+function updateStats() {
+  const nTimes = Object.values(state.stopTimes).reduce((a,b) => a + b.length, 0);
+  [
+    ['stat-stops',  Object.keys(state.stops).length],
+    ['stat-routes', Object.keys(state.routes).length],
+    ['stat-trips',  Object.keys(state.trips).length],
+    ['stat-times',  nTimes]
+  ].forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = formatN(val); el.classList.remove('loading'); }
+  });
+}
+
+// ── PARSEURS ───────────────────────────────────────────────────
+function parseCSV(raw) {
+  const lines = raw.replace(/\r/g, '').split('\n');
+  const headers = csvLine(lines[0]).map(h => h.replace(/^\uFEFF/, ''));
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const v = csvLine(lines[i]);
+    if (!v.length || (v.length === 1 && !v[0])) continue;
+    const row = {};
+    headers.forEach((h, idx) => { row[h] = (v[idx] || '').trim(); });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function csvLine(line) {
+  const res = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') inQ = !inQ;
+    else if (c === ',' && !inQ) { res.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  res.push(cur.trim());
+  return res;
+}
+
+function parseStops(raw) {
+  parseCSV(raw).forEach(r => {
+    if (!r.stop_id) return;
+    state.stops[r.stop_id] = {
+      id: r.stop_id,
+      name: r.stop_name || r.stop_id,
+      lat: parseFloat(r.stop_lat) || 0,
+      lon: parseFloat(r.stop_lon) || 0
+    };
+  });
+  state.stopsByName = Object.values(state.stops)
+    .filter(s => s.lat && s.lon)
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+}
+
+function parseRoutes(raw) {
+  parseCSV(raw).forEach(r => {
+    state.routes[r.route_id] = {
+      shortName:  r.route_short_name  || r.route_id,
+      longName:   r.route_long_name   || '',
+      color:      r.route_color       ? '#' + r.route_color      : null,
+      textColor:  r.route_text_color  ? '#' + r.route_text_color : '#ffffff',
+      type:       parseInt(r.route_type) || 3
+    };
+  });
+}
+
+function parseTrips(raw) {
+  parseCSV(raw).forEach(r => {
+    state.trips[r.trip_id] = {
+      routeId:   r.route_id,
+      serviceId: r.service_id,
+      headsign:  r.trip_headsign || ''
+    };
+  });
+}
+
+function parseCalendar(raw) {
+  parseCSV(raw).forEach(r => {
+    state.calendar[r.service_id] = {
+      days: [r.sunday,r.monday,r.tuesday,r.wednesday,r.thursday,r.friday,r.saturday].map(d => d === '1'),
+      startDate: r.start_date || '',
+      endDate:   r.end_date   || ''
+    };
+  });
+}
+
+function parseCalendarDates(raw) {
+  parseCSV(raw).forEach(r => {
+    if (!state.calendarDates[r.service_id]) state.calendarDates[r.service_id] = {};
+    state.calendarDates[r.service_id][r.date] = r.exception_type === '1' ? 'added' : 'removed';
+  });
+}
+
+function parseStopTimes(raw) {
+  parseCSV(raw).forEach(r => {
+    if (!r.trip_id) return;
+    if (!state.stopTimes[r.trip_id]) state.stopTimes[r.trip_id] = [];
+    state.stopTimes[r.trip_id].push({
+      stopId:       r.stop_id,
+      arrivalSec:   timeToSec(r.arrival_time),
+      departureSec: timeToSec(r.departure_time),
+      seq:          parseInt(r.stop_sequence) || 0
+    });
+    if (!state.stopToTrips[r.stop_id]) state.stopToTrips[r.stop_id] = new Set();
+    state.stopToTrips[r.stop_id].add(r.trip_id);
+  });
+  Object.values(state.stopTimes).forEach(arr => arr.sort((a, b) => a.seq - b.seq));
+}
+
+function buildRouteToStops() {
+  Object.entries(state.trips).forEach(([tripId, trip]) => {
+    const times = state.stopTimes[tripId];
+    if (!times) return;
+    if (!state.routeToStops[trip.routeId]) state.routeToStops[trip.routeId] = new Set();
+    times.forEach(t => state.routeToStops[trip.routeId].add(t.stopId));
+  });
+}
+
+// ── UTILS ──────────────────────────────────────────────────────
+function timeToSec(t) {
+  if (!t) return 0;
+  const p = t.split(':').map(Number);
+  return p[0] * 3600 + (p[1] || 0) * 60 + (p[2] || 0);
+}
+function secToTime(s) {
+  return String(Math.floor(s / 3600) % 24).padStart(2,'0') + ':' + String(Math.floor((s % 3600) / 60)).padStart(2,'0');
+}
+function formatN(n) { return n.toLocaleString('fr-FR'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/'/g,"\\'"); }
+function norm(s) {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+
+function isServiceActive(serviceId, dateStr) {
+  const ex = state.calendarDates[serviceId] || {};
+  if (ex[dateStr] === 'added')   return true;
+  if (ex[dateStr] === 'removed') return false;
+  const cal = state.calendar[serviceId];
+  if (!cal) return true;
+  if (dateStr < cal.startDate || dateStr > cal.endDate) return false;
+  const [y, mo, d] = [+dateStr.slice(0,4), +dateStr.slice(4,6)-1, +dateStr.slice(6,8)];
+  return cal.days[new Date(y, mo, d).getDay()];
+}
+
+function estimateDist(a, b) {
+  if (!a || !b) return 5;
+  const dl = b.lat - a.lat, dln = b.lon - a.lon;
+  return Math.max(0.5, Math.round(Math.sqrt(dl*dl + dln*dln) * 111 * 10) / 10);
+}
+function co2(distKm, gPerKm) { return Math.round(distKm * gPerKm) / 1000; }
+
+// ── AUTOCOMPLETE ───────────────────────────────────────────────
+function searchStops(q, limit = 10) {
+  if (!q || q.length < 2) return [];
+  const qn = norm(q);
+  return state.stopsByName
+    .map(s => {
+      const n = norm(s.name);
+      const score = n === qn ? 3 : n.startsWith(qn) ? 2 : n.includes(qn) ? 1 : 0;
+      return { ...s, score };
+    })
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
+    .slice(0, limit);
+}
+
+function renderAcList(listEl, results, onSelect) {
+  if (!results.length) { listEl.style.display = 'none'; return; }
+  listEl.innerHTML = results.map(r =>
+    `<div class="autocomplete-item" onclick="${onSelect(r)}">
+       <div class="ac-name">🚌 ${esc(r.name)}</div>
+       <div class="ac-detail">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
+     </div>`
+  ).join('');
+  listEl.style.display = 'block';
+}
+
+function doAutocomplete(input, side) {
+  if (!state.loaded) { if (!state.loading) loadGTFS(); return; }
+  renderAcList(
+    document.getElementById('ac-' + side),
+    searchStops(input.value),
+    r => `selectStop('${side}','${escAttr(r.id)}','${escAttr(r.name)}',${r.lat},${r.lon})`
+  );
+}
+
+function doAutocompleteHoraires(input) {
+  if (!state.loaded) { if (!state.loading) loadGTFS(); return; }
+  renderAcList(
+    document.getElementById('ac-horaires'),
+    searchStops(input.value),
+    r => `selectStopH('${escAttr(r.id)}','${escAttr(r.name)}')`
+  );
+}
+
+function selectStop(side, id, name, lat, lon) {
+  const stop = { id, name, lat: +lat, lon: +lon };
+  if (side === 'from') { state.fromStop = stop; document.getElementById('inputFrom').value = name; }
+  else                 { state.toStop   = stop; document.getElementById('inputTo').value   = name; }
+  document.getElementById('ac-' + side).style.display = 'none';
+}
+
+function selectStopH(id, name) {
+  const el = document.getElementById('horairesStop');
+  el.value = name; el.dataset.stopId = id;
+  document.getElementById('ac-horaires').style.display = 'none';
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.form-group') && !e.target.closest('.stop-selector'))
+    document.querySelectorAll('.autocomplete-list').forEach(l => l.style.display = 'none');
+});
+
+// ── CHIPS / PROFIL ─────────────────────────────────────────────
+function toggleChip(el) { el.classList.toggle('selected'); }
+function selectProfile(el) {
+  document.querySelectorAll('#profiles .profile-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.selectedProfile = el.dataset.profile;
+}
+
+// ── ALGORITHME ITINÉRAIRE ──────────────────────────────────────
+async function lancerRecherche() {
+  if (!state.loaded) {
+    if (!state.loading) loadGTFS();
+    showNotif('⏳ Données encore en chargement, patientez…'); return;
+  }
+
+  const fromText = document.getElementById('inputFrom').value.trim();
+  const toText   = document.getElementById('inputTo').value.trim();
+  if (!fromText || !toText) { showNotif('⚠️ Renseignez un départ et une arrivée.'); return; }
+
+  // Résolution arrêts
+  if (!state.fromStop || norm(state.fromStop.name) !== norm(fromText)) {
+    const r = searchStops(fromText, 1);
+    if (!r.length) { showNotif('❌ Arrêt introuvable : ' + fromText); return; }
+    state.fromStop = r[0];
+  }
+  if (!state.toStop || norm(state.toStop.name) !== norm(toText)) {
+    const r = searchStops(toText, 1);
+    if (!r.length) { showNotif('❌ Arrêt introuvable : ' + toText); return; }
+    state.toStop = r[0];
+  }
+  if (state.fromStop.id === state.toStop.id) { showNotif('⚠️ Départ et arrivée identiques.'); return; }
+
+  const date = document.getElementById('inputDate').value;
+  const time = document.getElementById('inputTime').value;
+  if (!date) { showNotif('⚠️ Choisissez une date.'); return; }
+
+  setLoading(true, 'Calcul de l\'itinéraire…', 'Analyse des horaires GTFS');
+
+  setTimeout(() => {
+    try {
+      const dateStr = date.replace(/-/g, '');
+      const depSec  = timeToSec(time + ':00');
+      let journeys  = findJourneys(state.fromStop.id, state.toStop.id, depSec, dateStr);
+      journeys = applyProfile(journeys, state.selectedProfile);
+      state.currentJourneys = journeys;
+      setLoading(false);
+      renderResults(journeys, state.fromStop.name, state.toStop.name, date, time);
+      showPage('results');
+    } catch(e) {
+      console.error(e);
+      setLoading(false);
+      showNotif('❌ Erreur recherche : ' + e.message, 'red');
+    }
+  }, 60);
+}
+
+function setLoading(on, txt, sub) {
+  const ov  = document.getElementById('loading');
+  const bar = document.getElementById('loadingBar');
+  if (on) {
+    ov.classList.add('active');
+    if (txt) document.getElementById('loadingText').textContent = txt;
+    if (sub) document.getElementById('loadingSub').textContent  = sub;
+    bar.style.width = '0%';
+    let p = 0;
+    clearInterval(bar._t);
+    bar._t = setInterval(() => { p = Math.min(p + Math.random() * 12, 90); bar.style.width = p + '%'; }, 200);
+  } else {
+    clearInterval(bar._t);
+    bar.style.width = '100%';
+    setTimeout(() => ov.classList.remove('active'), 350);
+  }
+}
+
+function findJourneys(fromId, toId, depSec, dateStr) {
+  const direct   = findDirect(fromId, toId, depSec, dateStr);
+  const transfer = direct.length < 3 ? findWithTransfer(fromId, toId, depSec, dateStr, 3 - direct.length) : [];
+  return [...direct, ...transfer].sort((a, b) => a.arrivalSec - b.arrivalSec).slice(0, 4);
+}
+
+function findDirect(fromId, toId, depSec, dateStr) {
+  const fromT = state.stopToTrips[fromId];
+  const toT   = state.stopToTrips[toId];
+  if (!fromT || !toT) return [];
+  const results = [];
+
+  for (const tid of fromT) {
+    if (!toT.has(tid)) continue;
+    const trip = state.trips[tid];
+    if (!trip || !isServiceActive(trip.serviceId, dateStr)) continue;
+    const times = state.stopTimes[tid];
+    if (!times) continue;
+    const fe = times.find(t => t.stopId === fromId);
+    const te = times.find(t => t.stopId === toId);
+    if (!fe || !te || fe.seq >= te.seq) continue;
+    if (fe.departureSec < depSec) continue;
+
+    const route   = state.routes[trip.routeId] || {};
+    const durMin  = Math.round((te.arrivalSec - fe.departureSec) / 60);
+    const distKm  = estimateDist(state.stops[fromId], state.stops[toId]);
+    const lineCol = route.color || ROUTE_TYPE_COLORS[route.type] || '#5b8fff';
+
+    results.push({
+      type: 'direct', transfers: 0,
+      depTime: secToTime(fe.departureSec), arrTime: secToTime(te.arrivalSec),
+      departureSec: fe.departureSec, arrivalSec: te.arrivalSec,
+      durationMin: durMin, walkMin: 0, distKm,
+      co2Bus: co2(distKm, CO2_BUS), co2Car: co2(distKm, CO2_CAR),
+      routeNames: [route.shortName || trip.routeId],
+      lineColors: [lineCol],
+      stops: [fromId, toId],
+      sections: [
+        { type: 'bus', dotClass: '',
+          time: secToTime(fe.departureSec),
+          title: `🚌 Ligne ${route.shortName || trip.routeId}${trip.headsign ? ' → ' + trip.headsign : ''}`,
+          desc:  `Depuis ${state.stops[fromId]?.name || fromId}`,
+          badge: route.shortName, badgeColor: lineCol, duration: durMin },
+        { type: 'end', dotClass: 'end',
+          time: secToTime(te.arrivalSec),
+          title: `📍 Arrivée — ${state.stops[toId]?.name || toId}`,
+          desc: 'Destination atteinte', duration: 0 }
+      ]
+    });
+    if (results.length >= 8) break;
+  }
+  return results.sort((a,b) => a.departureSec - b.departureSec).slice(0, 4);
+}
+
+function findWithTransfer(fromId, toId, depSec, dateStr, maxRes) {
+  const fromT = state.stopToTrips[fromId];
+  const toT   = state.stopToTrips[toId];
+  if (!fromT || !toT) return [];
+  const results = [];
+
+  outer:
+  for (const t1Id of fromT) {
+    const trip1 = state.trips[t1Id];
+    if (!trip1 || !isServiceActive(trip1.serviceId, dateStr)) continue;
+    const times1 = state.stopTimes[t1Id];
+    if (!times1) continue;
+    const fe = times1.find(t => t.stopId === fromId);
+    if (!fe || fe.departureSec < depSec) continue;
+
+    const nextStops = times1.filter(t => t.seq > fe.seq);
+    for (const midE of nextStops) {
+      const midId = midE.stopId;
+      if (!state.stopToTrips[midId]) continue;
+
+      for (const t2Id of state.stopToTrips[midId]) {
+        if (!toT.has(t2Id) || t2Id === t1Id) continue;
+        const trip2 = state.trips[t2Id];
+        if (!trip2 || !isServiceActive(trip2.serviceId, dateStr)) continue;
+        const times2 = state.stopTimes[t2Id];
+        if (!times2) continue;
+        const midE2 = times2.find(t => t.stopId === midId);
+        const te    = times2.find(t => t.stopId === toId);
+        if (!midE2 || !te || midE2.seq >= te.seq) continue;
+        if (midE2.departureSec < midE.arrivalSec + 120) continue;
+
+        const route1 = state.routes[trip1.routeId] || {};
+        const route2 = state.routes[trip2.routeId] || {};
+        const wait   = Math.round((midE2.departureSec - midE.arrivalSec) / 60);
+        const durMin = Math.round((te.arrivalSec - fe.departureSec) / 60);
+        const distKm = estimateDist(state.stops[fromId], state.stops[toId]);
+        const col1   = route1.color || '#5b8fff';
+        const col2   = route2.color || '#5b8fff';
+
+        results.push({
+          type: 'transfer', transfers: 1,
+          depTime: secToTime(fe.departureSec), arrTime: secToTime(te.arrivalSec),
+          departureSec: fe.departureSec, arrivalSec: te.arrivalSec,
+          durationMin: durMin, walkMin: 3, distKm,
+          co2Bus: co2(distKm, CO2_BUS), co2Car: co2(distKm, CO2_CAR),
+          routeNames: [route1.shortName || trip1.routeId, route2.shortName || trip2.routeId],
+          lineColors: [col1, col2],
+          stops: [fromId, midId, toId],
+          sections: [
+            { type: 'bus', dotClass: '',
+              time: secToTime(fe.departureSec),
+              title: `🚌 Ligne ${route1.shortName || trip1.routeId}${trip1.headsign ? ' → ' + trip1.headsign : ''}`,
+              desc:  `Depuis ${state.stops[fromId]?.name || fromId}`,
+              badge: route1.shortName, badgeColor: col1,
+              duration: Math.round((midE.arrivalSec - fe.departureSec) / 60) },
+            { type: 'transfer', dotClass: 'walk',
+              time: secToTime(midE.arrivalSec),
+              title: `🔄 Correspondance — ${state.stops[midId]?.name || midId}`,
+              desc: `Attente ${wait} min · Ligne ${route2.shortName || trip2.routeId}`,
+              duration: wait },
+            { type: 'bus', dotClass: '',
+              time: secToTime(midE2.departureSec),
+              title: `🚌 Ligne ${route2.shortName || trip2.routeId}${trip2.headsign ? ' → ' + trip2.headsign : ''}`,
+              desc: `Vers ${state.stops[toId]?.name || toId}`,
+              badge: route2.shortName, badgeColor: col2,
+              duration: Math.round((te.arrivalSec - midE2.departureSec) / 60) },
+            { type: 'end', dotClass: 'end',
+              time: secToTime(te.arrivalSec),
+              title: `📍 Arrivée — ${state.stops[toId]?.name || toId}`,
+              desc: 'Destination atteinte', duration: 0 }
+          ]
+        });
+        if (results.length >= maxRes * 3) break outer;
+        break;
+      }
+    }
+  }
+  return results.sort((a,b) => a.departureSec - b.departureSec).slice(0, maxRes);
+}
+
+function applyProfile(journeys, profile) {
+  const j = [...journeys];
+  switch(profile) {
+    case 'pmr': case 'senior': return j.sort((a,b) => a.transfers - b.transfers || a.durationMin - b.durationMin);
+    case 'eco': return j.sort((a,b) => a.co2Bus - b.co2Bus);
+    case 'etudiant': return j.sort((a,b) => a.durationMin - b.durationMin);
+    default: return j;
+  }
+}
+
+// ── RENDU RÉSULTATS ────────────────────────────────────────────
+function renderResults(journeys, fromName, toName, date, time) {
+  const df = new Date(date).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+  document.getElementById('resultsRoute').textContent = `${fromName} → ${toName} · ${df} · ${time}`;
+
+  if (!journeys.length) {
+    document.getElementById('resultsContent').innerHTML = `
+      <div class="no-result">
+        <div class="no-icon">🔍</div>
+        <h2>Aucun itinéraire trouvé</h2>
+        <p>Essayez une heure différente ou vérifiez que votre date est dans la plage de validité du réseau.</p>
+        <button class="btn btn-primary" style="margin-top:20px" onclick="showPage('search')">← Modifier</button>
+      </div>`; return;
+  }
+
+  const main = journeys[0];
+  const alts = journeys.slice(1);
+  const co2Saved = Math.max(0, main.co2Car - main.co2Bus).toFixed(2);
+
+  const tlHTML = main.sections.map((s, i) => {
+    const isLast = i === main.sections.length - 1;
+    const badgeHTML = s.badge
+      ? `<span style="display:inline-block;padding:2px 8px;border-radius:5px;font-size:0.72rem;font-weight:700;background:${s.badgeColor||'#5b8fff'};color:#fff;margin-left:6px">${esc(s.badge)}</span>`
+      : '';
+    return `<div class="tl-item">
+      <div class="tl-left">
+        <div class="tl-dot ${s.dotClass || ''}"></div>
+        ${!isLast ? '<div class="tl-line"></div>' : ''}
+      </div>
+      <div class="tl-content">
+        <h4>${esc(s.title)}${badgeHTML}</h4>
+        <p>${esc(s.desc)}</p>
+        <span class="tl-time">${s.time}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const altsHTML = alts.map((j, idx) => {
+    const faster = j.durationMin < main.durationMin;
+    const diff   = Math.abs(j.durationMin - main.durationMin);
+    const badge  = faster ? `−${diff} min` : (diff ? `+${diff} min` : '=');
+    const cls    = j.transfers === 0 ? 'tag-fast' : 'tag-acc';
+    const label  = j.transfers === 0 ? '🚀 Direct' : '🔄 Correspondance';
+    const linesHTML = (j.routeNames || []).map((n, li) =>
+      `<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700;background:${j.lineColors?.[li]||'#5b8fff'};color:#fff">${esc(n)}</span>`
+    ).join(' ');
+    return `<div class="alt-card" onclick="loadAlt(${idx+1})">
+      <div class="alt-card-header"><h4>${label} ${linesHTML}</h4><span class="alt-tag ${cls}">${badge}</span></div>
+      <div class="alt-stats"><span>🕐 ${j.durationMin} min</span><span>⏰ ${j.depTime}→${j.arrTime}</span><span>🔄 ${j.transfers} corresp.</span></div>
+    </div>`;
+  }).join('');
+
+  const linesHTML = (main.routeNames || []).map((n, i) =>
+    `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:0.8rem;font-weight:700;background:${main.lineColors?.[i]||'#5b8fff'};color:#fff;margin-right:4px">${esc(n)}</span>`
+  ).join('');
+
+  document.getElementById('resultsContent').innerHTML = `
+    <div class="results-grid">
+      <div>
+        <div class="main-result">
+          <div class="result-badge">⭐ Trajet recommandé · Données GTFS réelles</div>
+          <div class="result-stats">
+            <div class="stat-block"><div class="stat-val">${main.durationMin} min</div><div class="stat-label">Durée totale</div></div>
+            <div class="stat-block"><div class="stat-val">${main.arrTime}</div><div class="stat-label">Arrivée</div></div>
+            <div class="stat-block"><div class="stat-val">${main.transfers}</div><div class="stat-label">Corresp.</div></div>
+            <div class="stat-block"><div class="stat-val">${main.distKm} km</div><div class="stat-label">Distance</div></div>
+          </div>
+          <div class="timeline">${tlHTML}</div>
+          <div class="result-actions">
+            <button class="btn btn-primary btn-sm" onclick="showPage('map')">🗺️ Carte</button>
+            <button class="btn btn-secondary btn-sm" onclick="speakJourney()">🔊 Écouter</button>
+            <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ Imprimer</button>
+            <button class="btn btn-ghost btn-sm" onclick="showPage('search')">🔍 Nouveau</button>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-results">
+        <div class="why-box">
+          <h3>Détails du trajet</h3>
+          <div class="why-item">Lignes : ${linesHTML || 'N/A'}</div>
+          <div class="why-item">Départ ${main.depTime} · Arrivée ${main.arrTime}</div>
+          <div class="why-item">${main.transfers === 0 ? 'Trajet direct sans correspondance' : main.transfers + ' correspondance(s)'}</div>
+          <div class="why-item">Distance estimée : ${main.distKm} km</div>
+        </div>
+        <div class="eco-box">
+          <h3>🌿 Score écologique</h3>
+          <div class="eco-compare">
+            <div class="eco-col"><div class="eco-val green">${main.co2Bus} kg</div><p>CO₂ Bus</p></div>
+            <div class="eco-divider">vs</div>
+            <div class="eco-col"><div class="eco-val red">${main.co2Car} kg</div><p>CO₂ Voiture</p></div>
+          </div>
+          <div class="eco-saved">✅ ${co2Saved} kg CO₂ évités ce trajet</div>
+        </div>
+        ${alts.length ? `<div><p class="alt-title">Alternatives</p><div class="alt-cards">${altsHTML}</div></div>` : ''}
+      </div>
+    </div>`;
+}
+
+function loadAlt(idx) {
+  const copy = [...state.currentJourneys];
+  const alt  = copy.splice(idx, 1)[0];
+  copy.unshift(alt);
+  state.currentJourneys = copy;
+  renderResults(copy, state.fromStop?.name || '—', state.toStop?.name || '—',
+    document.getElementById('inputDate')?.value || '',
+    document.getElementById('inputTime')?.value || '');
+  window.scrollTo(0, 0);
+}
+
+function speakJourney() {
+  if (!('speechSynthesis' in window)) { showNotif('❌ Synthèse vocale non disponible.'); return; }
+  window.speechSynthesis.cancel();
+  const j = state.currentJourneys[0];
+  if (!j) return;
+  const txt = `Itinéraire de ${state.fromStop?.name} vers ${state.toStop?.name}. `
+    + `Départ à ${j.depTime}, arrivée à ${j.arrTime}, durée ${j.durationMin} minutes. `
+    + j.sections.map(s => s.title.replace(/[🚌🚶🔄📍🚴⭐]/g, '')).join('. ');
+  const u = new SpeechSynthesisUtterance(txt);
+  u.lang = 'fr-FR';
+  window.speechSynthesis.speak(u);
+  showNotif('🔊 Lecture vocale en cours…');
+}
+
+// ── HORAIRES ───────────────────────────────────────────────────
+function afficherHoraires() {
+  if (!state.loaded) { if (!state.loading) loadGTFS(); showNotif('⏳ Données en cours de chargement…'); return; }
+
+  const input  = document.getElementById('horairesStop');
+  const dateEl = document.getElementById('horairesDate');
+  const stopName = input.value.trim();
+  const dateStr  = dateEl.value.replace(/-/g, '');
+  if (!stopName) { showNotif('⚠️ Entrez un nom d\'arrêt.'); return; }
+  if (!dateStr)  { showNotif('⚠️ Choisissez une date.');    return; }
+
+  let stopId = input.dataset.stopId;
+  if (!stopId || !state.stops[stopId]) {
+    const r = searchStops(stopName, 1);
+    if (!r.length) { showNotif('❌ Arrêt introuvable : ' + stopName); return; }
+    stopId = r[0].id;
+  }
+
+  const trips = state.stopToTrips[stopId];
+  if (!trips?.size) {
+    document.getElementById('horairesResult').innerHTML = noResult('Aucun passage', 'Cet arrêt n\'a pas de données de passage.');
+    return;
+  }
+
+  const rows = [];
+  for (const tid of trips) {
+    const trip = state.trips[tid];
+    if (!trip || !isServiceActive(trip.serviceId, dateStr)) continue;
+    const times = state.stopTimes[tid];
+    if (!times) continue;
+    const entry = times.find(t => t.stopId === stopId);
+    if (!entry) continue;
+    const route = state.routes[trip.routeId] || {};
+    rows.push({
+      depSec: entry.departureSec,
+      time:   secToTime(entry.departureSec),
+      ligne:  route.shortName || trip.routeId,
+      color:  route.color || ROUTE_TYPE_COLORS[route.type] || '#5b8fff',
+      dir:    trip.headsign || '—'
+    });
+  }
+
+  rows.sort((a, b) => a.depSec - b.depSec);
+  if (!rows.length) {
+    document.getElementById('horairesResult').innerHTML = noResult('Aucun service ce jour', 'Pas de passage à cette date.');
+    return;
+  }
+
+  const nowSec = new Date().getHours() * 3600 + new Date().getMinutes() * 60;
+  let nextDone = false;
+  const tbRows = rows.map(r => {
+    let cls = r.depSec < nowSec ? 'past' : (!nextDone ? (nextDone = true, 'next') : '');
+    const badgeStyle = `background:${r.color};color:#fff`;
+    return `<tr>
+      <td><span class="time-pill ${cls}">${r.time}</span></td>
+      <td><span class="badge-ligne" style="${badgeStyle}">${esc(r.ligne)}</span></td>
+      <td>${esc(r.dir)}</td>
+    </tr>`;
+  }).join('');
+
+  const stopObj = state.stops[stopId];
+  document.getElementById('horairesResult').innerHTML = `
+    <h2 style="font-size:1.2rem;font-weight:800;margin-bottom:16px">📍 ${esc(stopObj?.name || stopId)} — ${rows.length} passages</h2>
+    <div class="horaires-table-wrap">
+      <table class="horaires-table">
+        <thead><tr><th>Heure</th><th>Ligne</th><th>Direction</th></tr></thead>
+        <tbody>${tbRows}</tbody>
+      </table>
+    </div>`;
+}
+
+function noResult(title, sub) {
+  return `<div class="no-result"><div class="no-icon">🕐</div><h2>${title}</h2><p>${sub}</p></div>`;
+}
+
+// ── CARTE LEAFLET ──────────────────────────────────────────────
+function initMap() {
+  const el = document.getElementById('leaflet-map');
+  if (!el) return;
+
+  if (!state.map) {
+    const center = state.fromStop
+      ? [state.fromStop.lat, state.fromStop.lon]
+      : [43.6047, 3.8797]; // Montpellier par défaut
+    state.map = L.map('leaflet-map').setView(center, 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+      maxZoom: 19
+    }).addTo(state.map);
+    state.mapInitialized = true;
+  } else {
+    state.map.invalidateSize();
+  }
+
+  if (state.currentJourneys.length && state.fromStop && state.toStop) {
+    drawJourney(state.currentJourneys[0]);
+  }
+}
+
+function drawJourney(journey) {
+  if (!state.map) return;
+  clearLayers('route'); clearLayers('markers');
+
+  const from = state.fromStop, to = state.toStop;
+
+  // Construire les coords via les arrêts réels du trajet
+  const coords = buildCoords(journey);
+  if (coords.length > 1) {
+    const color = journey.lineColors?.[0] || '#1db37e';
+    const poly = L.polyline(coords, { color, weight: 6, opacity: 0.9 }).addTo(state.map);
+    state.mapLayers.route.push(poly);
+    state.map.fitBounds(poly.getBounds(), { padding: [50, 50] });
+  }
+
+  // Marqueur départ
+  const mF = L.marker([from.lat, from.lon], { icon: makeMarkerIcon('#1db37e', '📍') })
+    .addTo(state.map).bindPopup(`<b>Départ</b><br>${esc(from.name)}`);
+  state.mapLayers.markers.push(mF);
+
+  // Marqueur arrivée
+  const mT = L.marker([to.lat, to.lon], { icon: makeMarkerIcon('#0d1f1a', '🏁') })
+    .addTo(state.map).bindPopup(`<b>Arrivée</b><br>${esc(to.name)}`);
+  state.mapLayers.markers.push(mT);
+
+  // Arrêts de correspondance
+  (journey.stops || []).slice(1, -1).forEach(sid => {
+    const s = state.stops[sid];
+    if (!s?.lat) return;
+    const cm = L.circleMarker([s.lat, s.lon], {
+      radius: 8, color: '#fff', fillColor: '#f0a500', fillOpacity: 1, weight: 2
+    }).addTo(state.map).bindPopup(`<b>Correspondance</b><br>${esc(s.name)}`);
+    state.mapLayers.markers.push(cm);
+  });
+
+  updateMapSidebar(journey, from, to);
+  document.getElementById('mapSubtitle').textContent = `${from.name} → ${to.name}`;
+}
+
+function buildCoords(journey) {
+  const pts = [];
+  const addStop = sid => { const s = state.stops[sid]; if (s?.lat) pts.push([s.lat, s.lon]); };
+  (journey.stops || []).forEach(addStop);
+  // Si pas de stops intermédiaires, juste from/to
+  if (pts.length < 2) {
+    if (state.fromStop) pts.unshift([state.fromStop.lat, state.fromStop.lon]);
+    if (state.toStop)   pts.push([state.toStop.lat, state.toStop.lon]);
+  }
+  return pts;
+}
+
+function makeMarkerIcon(bg, emoji) {
+  return L.divIcon({
+    html: `<div style="background:${bg};color:white;width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:15px">${emoji}</span></div>`,
+    className: '', iconSize: [34, 34], iconAnchor: [17, 34]
+  });
+}
+
+function updateMapSidebar(journey, from, to) {
+  const info = document.getElementById('mapTrajetInfo');
+  if (!info) return;
+  const lines = (journey.routeNames || []).map((n, i) =>
+    `<div class="map-info-item"><div class="map-dot" style="background:${journey.lineColors?.[i]||'#5b8fff'}"></div>Ligne ${esc(n)} · ${journey.durationMin} min</div>`
+  ).join('');
+  info.innerHTML = `
+    <div class="map-info-item"><div class="map-dot" style="background:var(--green)"></div><strong>${esc(from.name)}</strong></div>
+    ${lines}
+    <div class="map-info-item"><div class="map-dot" style="background:var(--ink)"></div><strong>${esc(to.name)}</strong></div>`;
+}
+
+// Carte réseau : tous les arrêts
+function toggleNetworkStops() {
+  if (!state.map || !state.loaded) return;
+  if (state.networkVisible) {
+    clearLayers('network');
+    state.networkVisible = false;
+    document.getElementById('btnNetwork').textContent = '🗺️ Afficher tous les arrêts';
+    return;
+  }
+  // Limiter à 2000 arrêts pour les perfs
+  const stops = state.stopsByName.slice(0, 2000);
+  const icon = L.divIcon({
+    html: '<div style="width:6px;height:6px;background:#5b8fff;border-radius:50%;border:1px solid #fff"></div>',
+    className: '', iconSize: [6,6], iconAnchor: [3,3]
+  });
+  stops.forEach(s => {
+    const m = L.marker([s.lat, s.lon], { icon }).addTo(state.map)
+      .bindPopup(`<b>${esc(s.name)}</b>`);
+    state.mapLayers.network.push(m);
+  });
+  state.networkVisible = true;
+  document.getElementById('btnNetwork').textContent = '🙈 Masquer les arrêts';
+}
+
+function clearLayers(key) {
+  (state.mapLayers[key] || []).forEach(l => { try { state.map.removeLayer(l); } catch(e){} });
+  state.mapLayers[key] = [];
+}
+
+function applyMapFilters() {
+  if (!state.map) return;
+  const showLignes  = document.getElementById('filterLignes').checked;
+  const showMarche  = document.getElementById('filterMarche').checked;
+  const showArrets  = document.getElementById('filterArrets').checked;
+  state.mapLayers.route.forEach(l => showLignes  ? state.map.addLayer(l) : state.map.removeLayer(l));
+  state.mapLayers.markers.forEach(l => showArrets ? state.map.addLayer(l) : state.map.removeLayer(l));
+  state.mapLayers.network.forEach(l => showArrets ? state.map.addLayer(l) : state.map.removeLayer(l));
+}
+
+// ── ACCESSIBILITÉ ──────────────────────────────────────────────
+function toggleAccess(type, el) {
+  el.classList.toggle('on');
+  if (type === 'largeText') document.body.classList.toggle('large-text', el.classList.contains('on'));
+  if (type === 'contrast')  document.body.classList.toggle('high-contrast', el.classList.contains('on'));
+}
+function toggleVoice(el) {
+  el.classList.toggle('on');
+  showNotif(el.classList.contains('on') ? '🔊 Lecture vocale activée.' : '🔇 Désactivée.');
+}
+
+// ── INIT ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const today = new Date().toISOString().split('T')[0];
+  ['inputDate','horairesDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = today;
+  });
+  loadGTFS();
+});
