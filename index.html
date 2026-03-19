@@ -4070,20 +4070,34 @@ let aiChatOpen = false;
 let aiHistory = [];
 let aiGreeted = false;
 
-function toggleAIChat() {
-  aiChatOpen = !aiChatOpen;
+function closeChat() {
+  aiChatOpen = false;
   const win = document.getElementById('aiChatWindow');
   const btn = document.getElementById('aiBubbleBtn');
-  const notif = document.getElementById('aiNotif');
   const icon = document.getElementById('aiBubbleIcon');
+  if (win) { win.classList.remove('open'); win.style.pointerEvents = 'none'; }
+  if (btn) btn.classList.remove('open');
+  if (icon) icon.textContent = '🤖';
+}
 
-  win.classList.toggle('open', aiChatOpen);
-  btn.classList.toggle('open', aiChatOpen);
-  icon.textContent = aiChatOpen ? '✕' : '🤖';
-  notif.style.display = 'none';
+function toggleAIChat() {
+  // Si déjà ouvert → fermer proprement
+  if (aiChatOpen) { closeChat(); return; }
+
+  // Ouvrir
+  aiChatOpen = true;
+  const win = document.getElementById('aiChatWindow');
+  const btn = document.getElementById('aiBubbleBtn');
+  const icon = document.getElementById('aiBubbleIcon');
+  const notif = document.getElementById('aiNotif');
+
+  if (win) { win.classList.add('open'); win.style.pointerEvents = 'all'; }
+  if (btn) btn.classList.add('open');
+  if (icon) icon.textContent = '✕';
+  if (notif) notif.style.display = 'none';
 
   // Délégation globale sur le conteneur messages (une seule fois)
-  if (aiChatOpen && !win._delegated) {
+  if (win && !win._delegated) {
     win._delegated = true;
     document.getElementById('aiMessages').addEventListener('click', function(e) {
       const btn = e.target.closest('.ai-action-btn[data-action]');
@@ -4094,7 +4108,7 @@ function toggleAIChat() {
     });
   }
 
-  if (aiChatOpen && !aiGreeted) {
+  if (!aiGreeted) {
     aiGreeted = true;
     const hasKey = !!localStorage.getItem('mobby-api-key');
     setTimeout(() => {
@@ -4178,14 +4192,7 @@ function aiHandleAction(action) {
 
   // Ferme le chat et navigue vers une page après la transition CSS
   function closeAndGo(pageId) {
-    aiChatOpen = false;
-    const win = document.getElementById('aiChatWindow');
-    const btn = document.getElementById('aiBubbleBtn');
-    const icon = document.getElementById('aiBubbleIcon');
-    if (win) { win.classList.remove('open'); win.style.pointerEvents = 'none'; }
-    if (btn) btn.classList.remove('open');
-    if (icon) icon.textContent = '🤖';
-    // Attendre la fin de la transition (250ms) puis changer de page
+    closeChat();
     setTimeout(() => showPage(pageId), 300);
   }
 
