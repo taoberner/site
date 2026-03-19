@@ -435,6 +435,31 @@
     outline: 3px solid var(--green);
     outline-offset: 2px;
   }
+
+  /* ===== BOUTON GÉOLOCALISATION ===== */
+  .geo-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--green-light);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--green-dark);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  .geo-btn:hover { background: var(--green); color: white; border-color: var(--green); }
+  .geo-btn.loading { opacity: 0.7; cursor: wait; }
+  .form-group.with-geo input { padding-right: 110px; }
   
   /* ===== AUTOCOMPLETE AMÉLIORÉ ===== */
   .autocomplete-item:focus { background: var(--green-light); outline: none; }
@@ -1299,9 +1324,12 @@
       <div class="form-card">
         <h2>Votre itinéraire</h2>
         <div class="form-row" style="margin-bottom:16px">
-          <div class="form-group">
+          <div class="form-group with-geo">
             <label>📍 Départ</label>
             <input type="text" id="inputFrom" placeholder="Ex : Gare de Béziers" autocomplete="off" oninput="autocomplete(this, 'from')">
+            <button class="geo-btn" id="geoBtn" onclick="utiliserMaPosition()" title="Utiliser ma position actuelle">
+              📍 Ma position
+            </button>
             <div class="autocomplete-list" id="ac-from" style="display:none"></div>
           </div>
           <div class="form-group">
@@ -1734,15 +1762,19 @@ function doLogin() {
   }
 
   // Vérifier dans localStorage
-  const users = JSON.parse(localStorage.getItem('mobby_users') || '[]');
-  const user = users.find(u => u.email === email && u.pwd === btoa(pwd));
+  let users = [];
+  try { users = JSON.parse(localStorage.getItem('mobby_users') || '[]'); } catch(e) { users = []; }
+  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.pwd === btoa(pwd));
 
   // Accepter aussi demo@mobby.fr / mobby2026
   const isDemo = email === 'demo@mobby.fr' && pwd === 'mobby2026';
 
   if (user || isDemo) {
-    const userData = user || {email, prenom: 'Utilisateur', nom: 'Mobby'};
-    localStorage.setItem('mobby_session', JSON.stringify({...userData, loginAt: Date.now()}));
+    const userData = user || { email, prenom: 'Démo', nom: 'Mobby' };
+    const sessionData = { prenom: userData.prenom, nom: userData.nom, email: userData.email, loginAt: Date.now() };
+    try {
+      localStorage.setItem('mobby_session', JSON.stringify(sessionData));
+    } catch(e) { /* stockage plein, on continue quand même */ }
     errEl.style.display = 'none';
     enterApp(userData.prenom || 'Bienvenue');
   } else {
@@ -1779,17 +1811,31 @@ function doRegister() {
   }
 
   // Vérifier doublon
-  const users = JSON.parse(localStorage.getItem('mobby_users') || '[]');
+  let users = [];
+  try { users = JSON.parse(localStorage.getItem('mobby_users') || '[]'); } catch(e) { users = []; }
   if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
     errEl.textContent = 'Cet e-mail est deja utilise. Connectez-vous !';
     errEl.style.display = 'block'; return;
   }
 
   // Créer le compte
-  const newUser = {prenom, nom, email, pwd: btoa(pwd), createdAt: Date.now()};
+  const newUser = { prenom, nom, email, pwd: btoa(pwd), createdAt: Date.now() };
   users.push(newUser);
-  localStorage.setItem('mobby_users', JSON.stringify(users));
-  localStorage.setItem('mobby_session', JSON.stringify({...newUser, loginAt: Date.now()}));
+  try {
+    localStorage.setItem('mobby_users', JSON.stringify(users));
+    const sessionData = { prenom, nom, email, loginAt: Date.now() };
+    localStorage.setItem('mobby_session', JSON.stringify(sessionData));
+  } catch(e) {
+    errEl.textContent = '❌ Impossible de sauvegarder le compte (stockage plein ou bloqué).';
+    errEl.style.display = 'block'; return;
+  }
+
+  // Vérification que la sauvegarde a fonctionné
+  const verif = JSON.parse(localStorage.getItem('mobby_users') || '[]');
+  if (!verif.find(u => u.email === email)) {
+    errEl.textContent = '❌ Erreur lors de la sauvegarde. Réessayez.';
+    errEl.style.display = 'block'; return;
+  }
 
   // Afficher confirmation email simulée
   showEmailConfirmation(prenom, email);
@@ -1870,7 +1916,8 @@ function updateNavUser(prenom) {
 }
 
 function checkSession() {
-  const session = JSON.parse(localStorage.getItem('mobby_session') || 'null');
+  let session = null;
+  try { session = JSON.parse(localStorage.getItem('mobby_session') || 'null'); } catch(e) { session = null; }
   if (session && session.loginAt && (Date.now() - session.loginAt) < 7 * 24 * 3600 * 1000) {
     // Session valide (7 jours)
     document.getElementById('page-login').style.display = 'none';
@@ -2133,8 +2180,75 @@ async function lancerRecherche() {
 }
 
 /* =====================================================
-   GÉOCODAGE Nominatim OSM (sans clé)
+   📍 GÉOLOCALISATION — Ma position actuelle
    ===================================================== */
+function utiliserMaPosition() {
+  const btn = document.getElementById('geoBtn');
+  const input = document.getElementById('inputFrom');
+
+  if (!navigator.geolocation) {
+    showNotification('❌ La géolocalisation n\'est pas supportée par votre navigateur.');
+    return;
+  }
+
+  btn.classList.add('loading');
+  btn.textContent = '⏳ Localisation…';
+  btn.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+
+      // Reverse geocoding via Nominatim pour avoir un nom lisible
+      try {
+        const r = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=fr`,
+          { headers: { 'Accept-Language': 'fr' }, signal: AbortSignal.timeout(5000) }
+        );
+        const data = await r.json();
+        const addr = data.address;
+        // Construire un nom court et lisible
+        const nom = addr.road
+          ? `${addr.road}${addr.house_number ? ' ' + addr.house_number : ''}, ${addr.city || addr.town || addr.village || addr.municipality || ''}`
+          : (addr.city || addr.town || data.display_name.split(',')[0]);
+
+        input.value = nom.trim();
+        state.fromLabel = nom.trim();
+        state.fromCoords = { lat, lon };
+        document.getElementById('ac-from').style.display = 'none';
+        showNotification('📍 Position détectée : ' + nom.trim().split(',')[0]);
+      } catch (e) {
+        // Si reverse geocoding échoue, utiliser les coords directement
+        const nomFallback = `Ma position (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+        input.value = nomFallback;
+        state.fromLabel = nomFallback;
+        state.fromCoords = { lat, lon };
+        showNotification('📍 Position GPS utilisée comme point de départ.');
+      }
+
+      btn.classList.remove('loading');
+      btn.innerHTML = '✅ Localisé';
+      btn.disabled = false;
+      setTimeout(() => { btn.innerHTML = '📍 Ma position'; }, 3000);
+    },
+    (err) => {
+      btn.classList.remove('loading');
+      btn.innerHTML = '📍 Ma position';
+      btn.disabled = false;
+      if (err.code === 1) {
+        showNotification('🔒 Accès à la localisation refusé. Autorisez-la dans les paramètres du navigateur.');
+      } else if (err.code === 2) {
+        showNotification('❌ Position introuvable. Vérifiez votre connexion GPS.');
+      } else {
+        showNotification('⏱️ Délai dépassé. Réessayez.');
+      }
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+  );
+}
+
+
 async function geocodeNominatim(text) {
   try {
     const q = encodeURIComponent(text + ' Occitanie France');
