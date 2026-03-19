@@ -816,8 +816,150 @@
   <a href="#" onclick="showPage('search');closeMobileNav()" class="nav-cta">🗺️ Planifier mon trajet</a>
 </div>
 
+<!-- ===== PAGE 0 — AUTHENTIFICATION ===== -->
+<div id="page-login" class="page active" style="min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="width:100%;max-width:440px">
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:36px">
+      <div style="font-family:'Syne',sans-serif;font-size:2.2rem;font-weight:900;color:var(--green)">mobby</div>
+      <div style="font-size:0.85rem;color:var(--muted);margin-top:4px">Votre compagnon de mobilité en Occitanie</div>
+    </div>
+
+    <!-- Card -->
+    <div style="background:white;border-radius:24px;padding:36px;box-shadow:0 8px 40px rgba(0,0,0,0.08);border:1px solid var(--border)">
+
+      <!-- Tabs -->
+      <div style="display:flex;background:#f5f5f5;border-radius:12px;padding:4px;margin-bottom:28px">
+        <button id="tab-login" onclick="switchAuthTab('login')"
+          style="flex:1;padding:9px;border-radius:9px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:0.88rem;background:white;color:var(--ink);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all 0.2s">
+          Connexion
+        </button>
+        <button id="tab-register" onclick="switchAuthTab('register')"
+          style="flex:1;padding:9px;border-radius:9px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:0.88rem;background:transparent;color:var(--muted);transition:all 0.2s">
+          Créer un compte
+        </button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="form-login">
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:0.8rem;font-weight:700;color:var(--ink-mid);margin-bottom:6px">Adresse e-mail</label>
+          <input type="email" id="login-email" placeholder="vous@exemple.fr"
+            style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;background:var(--bg);transition:border 0.2s"
+            onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div style="margin-bottom:22px">
+          <label style="display:block;font-size:0.8rem;font-weight:700;color:var(--ink-mid);margin-bottom:6px">Mot de passe</label>
+          <div style="position:relative">
+            <input type="password" id="login-password" placeholder="••••••••"
+              style="width:100%;padding:12px 44px 12px 14px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;background:var(--bg);transition:border 0.2s"
+              onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'"
+              onkeydown="if(event.key==='Enter')doLogin()">
+            <button onclick="togglePassword('login-password',this)" type="button"
+              style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:var(--muted)">👁️</button>
+          </div>
+          <div style="text-align:right;margin-top:6px">
+            <a href="#" onclick="showNotification('📧 Lien de réinitialisation envoyé !');return false"
+              style="font-size:0.75rem;color:var(--green);text-decoration:none">Mot de passe oublié ?</a>
+          </div>
+        </div>
+        <div id="login-error" style="display:none;background:#fff0f0;color:#c0392b;border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:0.82rem;border:1px solid #f5c6c6"></div>
+        <button onclick="doLogin()"
+          style="width:100%;padding:13px;background:var(--green);color:white;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;transition:opacity 0.2s"
+          onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+          Se connecter →
+        </button>
+        <div style="text-align:center;margin-top:20px">
+          <div style="position:relative;text-align:center;margin-bottom:16px">
+            <hr style="border:none;border-top:1px solid var(--border)">
+            <span style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:white;padding:0 12px;font-size:0.72rem;color:var(--muted)">ou continuer avec</span>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button onclick="doSocialLogin('Google')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:white;cursor:pointer;font-size:0.82rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px">
+              <span style="font-size:1rem">🌐</span> Google
+            </button>
+            <button onclick="doSocialLogin('France Connect')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #003189;background:#003189;color:white;cursor:pointer;font-size:0.82rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px">
+              <span>🇫🇷</span> FranceConnect
+            </button>
+          </div>
+        </div>
+        <p style="text-align:center;font-size:0.78rem;color:var(--muted);margin-top:20px">
+          Pas encore de compte ? <a href="#" onclick="switchAuthTab('register');return false" style="color:var(--green);font-weight:600">S'inscrire gratuitement</a>
+        </p>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="form-register" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <label style="display:block;font-size:0.8rem;font-weight:700;color:var(--ink-mid);margin-bottom:6px">Prénom</label>
+            <input type="text" id="reg-prenom" placeholder="Marie"
+              style="width:100%;padding:11px 13px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;background:var(--bg)"
+              onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;font-weight:700;color:var(--ink-mid);margin-bottom:6px">Nom</label>
+            <input type="text" id="reg-nom" placeholder="Dupont"
+              style="width:100%;padding:11px 13px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;background:var(--bg)"
+              onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:0.8rem;font-weight:700;color:var(--ink-mid);margin-bottom:6px">Adresse e-mail</label>
+          <input type="email" id="reg-email" placeholder="vous@exemple.fr"
+            style="width:100%;padding:11px 13px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;background:var(--bg)"
+            onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:0.8rem;font-weight:700;color:var(--ink-mid);margin-bottom:6px">Mot de passe</label>
+          <div style="position:relative">
+            <input type="password" id="reg-password" placeholder="8 caractères minimum"
+              style="width:100%;padding:11px 44px 11px 13px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;background:var(--bg)"
+              onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'"
+              oninput="checkPasswordStrength(this.value)">
+            <button onclick="togglePassword('reg-password',this)" type="button"
+              style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:var(--muted)">👁️</button>
+          </div>
+          <div id="pwd-strength" style="margin-top:6px;display:flex;gap:4px">
+            <div class="pwd-bar" style="height:4px;flex:1;border-radius:2px;background:#eee;transition:background 0.3s"></div>
+            <div class="pwd-bar" style="height:4px;flex:1;border-radius:2px;background:#eee;transition:background 0.3s"></div>
+            <div class="pwd-bar" style="height:4px;flex:1;border-radius:2px;background:#eee;transition:background 0.3s"></div>
+            <div class="pwd-bar" style="height:4px;flex:1;border-radius:2px;background:#eee;transition:background 0.3s"></div>
+          </div>
+        </div>
+        <div style="margin-bottom:20px">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.8rem;color:var(--ink-mid)">
+            <input type="checkbox" id="reg-cgu" style="margin-top:2px;width:16px;height:16px;flex-shrink:0">
+            <span>J'accepte les <a href="#" style="color:var(--green)">conditions d'utilisation</a> et la <a href="#" style="color:var(--green)">politique de confidentialité</a></span>
+          </label>
+        </div>
+        <div id="reg-error" style="display:none;background:#fff0f0;color:#c0392b;border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:0.82rem;border:1px solid #f5c6c6"></div>
+        <button onclick="doRegister()"
+          style="width:100%;padding:13px;background:var(--green);color:white;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer"
+          onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+          Créer mon compte →
+        </button>
+        <p style="text-align:center;font-size:0.78rem;color:var(--muted);margin-top:16px">
+          Déjà un compte ? <a href="#" onclick="switchAuthTab('login');return false" style="color:var(--green);font-weight:600">Se connecter</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- Continuer sans compte -->
+    <div style="text-align:center;margin-top:20px">
+      <button onclick="continuerSansCompte()"
+        style="background:none;border:none;color:var(--muted);font-size:0.82rem;cursor:pointer;text-decoration:underline;text-underline-offset:2px">
+        Continuer sans compte →
+      </button>
+    </div>
+    <p style="text-align:center;font-size:0.7rem;color:var(--muted);margin-top:14px;line-height:1.5">
+      🔒 Connexion sécurisée · Données hébergées en France
+    </p>
+  </div>
+</div>
+
 <!-- ===== PAGE 1 — ACCUEIL ===== -->
-<div id="page-home" class="page active">
+<div id="page-home" class="page">
   <section class="hero">
     <div class="hero-inner">
       <div class="hero-text">
@@ -1548,7 +1690,165 @@ function showPage(id) {
 /* =====================================================
    INIT
    ===================================================== */
+/* =====================================================
+   AUTHENTIFICATION — Gestion session localStorage
+   ===================================================== */
+
+function switchAuthTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('form-login').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('form-register').style.display = isLogin ? 'none' : 'block';
+  document.getElementById('tab-login').style.cssText = `flex:1;padding:9px;border-radius:9px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:0.88rem;background:${isLogin?'white':'transparent'};color:${isLogin?'var(--ink)':'var(--muted)'};box-shadow:${isLogin?'0 2px 8px rgba(0,0,0,0.08)':'none'};transition:all 0.2s`;
+  document.getElementById('tab-register').style.cssText = `flex:1;padding:9px;border-radius:9px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:0.88rem;background:${!isLogin?'white':'transparent'};color:${!isLogin?'var(--ink)':'var(--muted)'};box-shadow:${!isLogin?'0 2px 8px rgba(0,0,0,0.08)':'none'};transition:all 0.2s`;
+}
+
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+  else { input.type = 'password'; btn.textContent = '👁️'; }
+}
+
+function checkPasswordStrength(pwd) {
+  const bars = document.querySelectorAll('.pwd-bar');
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  const colors = ['#eee','#e74c3c','#f39c12','#3498db','#27ae60'];
+  bars.forEach((b,i) => { b.style.background = i < score ? colors[score] : '#eee'; });
+}
+
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pwd = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+
+  if (!email || !pwd) {
+    errEl.textContent = '⚠️ Veuillez remplir tous les champs.';
+    errEl.style.display = 'block'; return;
+  }
+  if (!email.includes('@')) {
+    errEl.textContent = '⚠️ Adresse e-mail invalide.';
+    errEl.style.display = 'block'; return;
+  }
+
+  // Vérifier dans localStorage
+  const users = JSON.parse(localStorage.getItem('mobby_users') || '[]');
+  const user = users.find(u => u.email === email && u.pwd === btoa(pwd));
+
+  // Accepter aussi demo@mobby.fr / mobby2026
+  const isDemo = email === 'demo@mobby.fr' && pwd === 'mobby2026';
+
+  if (user || isDemo) {
+    const userData = user || {email, prenom: 'Utilisateur', nom: 'Mobby'};
+    localStorage.setItem('mobby_session', JSON.stringify({...userData, loginAt: Date.now()}));
+    errEl.style.display = 'none';
+    enterApp(userData.prenom || 'Bienvenue');
+  } else {
+    errEl.textContent = '❌ E-mail ou mot de passe incorrect. Essayez demo@mobby.fr / mobby2026';
+    errEl.style.display = 'block';
+  }
+}
+
+function doRegister() {
+  const prenom = document.getElementById('reg-prenom').value.trim();
+  const nom = document.getElementById('reg-nom').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pwd = document.getElementById('reg-password').value;
+  const cgu = document.getElementById('reg-cgu').checked;
+  const errEl = document.getElementById('reg-error');
+
+  if (!prenom || !email || !pwd) {
+    errEl.textContent = '⚠️ Veuillez remplir tous les champs obligatoires.';
+    errEl.style.display = 'block'; return;
+  }
+  if (!email.includes('@')) {
+    errEl.textContent = '⚠️ Adresse e-mail invalide.';
+    errEl.style.display = 'block'; return;
+  }
+  if (pwd.length < 8) {
+    errEl.textContent = '⚠️ Le mot de passe doit faire au moins 8 caractères.';
+    errEl.style.display = 'block'; return;
+  }
+  if (!cgu) {
+    errEl.textContent = '⚠️ Vous devez accepter les conditions d'utilisation.';
+    errEl.style.display = 'block'; return;
+  }
+
+  const users = JSON.parse(localStorage.getItem('mobby_users') || '[]');
+  if (users.find(u => u.email === email)) {
+    errEl.textContent = '❌ Cet e-mail est déjà utilisé.';
+    errEl.style.display = 'block'; return;
+  }
+
+  const newUser = {prenom, nom, email, pwd: btoa(pwd), createdAt: Date.now()};
+  users.push(newUser);
+  localStorage.setItem('mobby_users', JSON.stringify(users));
+  localStorage.setItem('mobby_session', JSON.stringify({...newUser, loginAt: Date.now()}));
+  errEl.style.display = 'none';
+  enterApp(prenom);
+}
+
+function doSocialLogin(provider) {
+  // Simulation connexion sociale
+  const prenom = provider === 'France Connect' ? 'Citoyen' : 'Utilisateur';
+  localStorage.setItem('mobby_session', JSON.stringify({prenom, email: provider.toLowerCase()+'@social', loginAt: Date.now(), provider}));
+  enterApp(prenom);
+}
+
+function continuerSansCompte() {
+  localStorage.setItem('mobby_session', JSON.stringify({prenom: 'Visiteur', guest: true, loginAt: Date.now()}));
+  enterApp(null);
+}
+
+function enterApp(prenom) {
+  // Cacher login, montrer l'app
+  document.getElementById('page-login').style.display = 'none';
+  document.querySelectorAll('nav, .mobile-nav').forEach(el => el.style.display = '');
+  showPage('home');
+  if (prenom) {
+    showNotification(`👋 Bonjour ${prenom} ! Bienvenue sur Mobby.`);
+    updateNavUser(prenom);
+  }
+}
+
+function updateNavUser(prenom) {
+  const navEl = document.querySelector('.nav-links');
+  if (!navEl) return;
+  // Ajouter avatar utilisateur dans la nav
+  const existing = document.getElementById('nav-user-btn');
+  if (existing) { existing.textContent = prenom.charAt(0).toUpperCase(); return; }
+  const btn = document.createElement('button');
+  btn.id = 'nav-user-btn';
+  btn.style.cssText = 'width:32px;height:32px;border-radius:50%;background:var(--green);color:white;border:none;cursor:pointer;font-family:"Syne",sans-serif;font-weight:800;font-size:0.85rem';
+  btn.textContent = prenom.charAt(0).toUpperCase();
+  btn.onclick = () => {
+    if (confirm('Se déconnecter ?')) {
+      localStorage.removeItem('mobby_session');
+      location.reload();
+    }
+  };
+  navEl.appendChild(btn);
+}
+
+function checkSession() {
+  const session = JSON.parse(localStorage.getItem('mobby_session') || 'null');
+  if (session && session.loginAt && (Date.now() - session.loginAt) < 7 * 24 * 3600 * 1000) {
+    // Session valide (7 jours)
+    document.getElementById('page-login').style.display = 'none';
+    document.querySelectorAll('nav, .mobile-nav').forEach(el => el.style.display = '');
+    showPage('home');
+    updateNavUser(session.prenom || 'U');
+    return true;
+  }
+  // Cacher la nav tant que non connecté
+  document.querySelectorAll('nav, .mobile-nav').forEach(el => el.style.display = 'none');
+  return false;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  if (!checkSession()) return; // stop init if not logged in
   const today = new Date().toISOString().split('T')[0];
   const el = document.getElementById('inputDate');
   if (el) el.value = today;
@@ -2958,13 +3258,13 @@ function showAllStopsOnMap() {
     marker.bindPopup(`<div style="font-family:sans-serif;min-width:160px">
       <b>${a.icon} ${a.name}</b><br>
       ${a.ligne ? `<span style="background:${col};color:white;padding:1px 6px;border-radius:4px;font-size:0.75rem;font-weight:700">${a.ligne}</span> ` : ''}
-      <span style="color:#666;font-size:0.78rem">${a.ville||''}</span><br>
+      <span style="color:#666;font-size:0.78rem">${a.ville||a.dept||''}</span><br>
       ${prochains.length ? `<div style="margin:5px 0;font-size:0.78rem;color:#159b68">🕐 <b>${prochains.slice(0,3).join(' · ')}</b></div>` : ''}
       <div style="display:flex;gap:4px;margin-top:6px">
-        <button onclick="useStopAsFrom('${sn}','${a.lat}','${a.lon}')" style="background:#1db37e;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;flex:1">📍 Départ</button>
+        <button onclick="useStopAsFrom('${sn}','${a.lat}','${a.lon}')" style="background:#E31E24;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;flex:1">📍 Départ</button>
         <button onclick="useStopAsTo('${sn}','${a.lat}','${a.lon}')" style="background:#0d1f1a;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;flex:1">🏁 Arrivée</button>
       </div>
-      ${a.ligne ? `<button onclick="showHoraires('${a.ligne}')" style="margin-top:4px;width:100%;background:#fff8e0;color:#b37a00;border:1px solid #f0a500;padding:4px;border-radius:6px;cursor:pointer;font-size:0.75rem">🕐 Horaires</button>` : ''}
+      <button onclick="showHorairesArretCarte('${sn}','${a.lat}','${a.lon}')" style="margin-top:4px;width:100%;background:#fff8e0;color:#b37a00;border:1px solid #f0a500;padding:5px;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:600">🕐 Prochains départs</button>
     </div>`);
     state.mapLayers.markers.push(marker);
   });
@@ -2975,6 +3275,54 @@ function showAllStopsOnMap() {
     showAllStopsOnMap();
   });
 }
+
+// Afficher horaires d'un arrêt depuis la carte (popup)
+function showHorairesArretCarte(name, lat, lon) {
+  const departs = getProchainsDepartsGTFS(name, {lat: parseFloat(lat), lon: parseFloat(lon)});
+  const now = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+  const color = '#E31E24';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.classList.add('modal-overlay');
+
+  const rows = departs.length ? departs.slice(0, 8).map((d,i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:10px;background:${i===0?d.color+'15':'#f8f8f8'};border:1px solid ${i===0?d.color:'#eee'};margin-bottom:5px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="background:${d.color||color};color:white;padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:700">${d.line}</span>
+        <span style="font-size:0.82rem;color:#555;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.direction}</span>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <span style="font-weight:800;font-size:0.95rem">${d.time}</span>
+        <span style="display:block;font-size:0.6rem;color:#999">📅 indicatif</span>
+      </div>
+    </div>`).join('')
+    : '<p style="color:#888;font-style:italic;font-size:0.85rem;padding:8px">Aucun départ trouvé près de cet arrêt.</p>';
+
+  modal.innerHTML = `<div style="background:white;border-radius:18px;max-width:420px;width:100%;padding:24px;box-shadow:0 12px 48px rgba(0,0,0,0.2)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <div style="font-size:1rem;font-weight:800;font-family:'Syne',sans-serif">🚏 ${name}</div>
+        <div style="font-size:0.72rem;color:#888;margin-top:2px">Données GTFS · mis à jour à ${now}</div>
+      </div>
+      <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;cursor:pointer;font-size:1.3rem;color:#aaa">✕</button>
+    </div>
+    <div style="background:#fff8e0;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:0.75rem;color:#7a5500">
+      📦 Horaires <strong>indicatifs</strong> — calculés depuis le tracé GTFS
+    </div>
+    ${rows}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="useStopAsFrom('${name.replace(/'/g,"\'")}','${lat}','${lon}');this.closest('.modal-overlay').remove()"
+        style="flex:1;background:#E31E24;color:white;border:none;padding:8px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600">📍 Définir départ</button>
+      <button onclick="useStopAsTo('${name.replace(/'/g,"\'")}','${lat}','${lon}');this.closest('.modal-overlay').remove()"
+        style="flex:1;background:#0d1f1a;color:white;border:none;padding:8px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600">🏁 Définir arrivée</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
 
 function useStopAsTo(name, lat, lon) {
   state.toLabel = name;
@@ -3059,42 +3407,95 @@ function showAllLignesOnMap() {
 /* =====================================================
    MODAL HORAIRES
    ===================================================== */
-function showHoraires(numLigne) {
-  const info = LIGNES_LIO.find(l => l.num === numLigne) || {num: numLigne, nom: numLigne, color:'#1db37e'};
-  const color = info.color || '#1db37e';
+function showHoraires(numLigne, arretName, arretLat, arretLon) {
+  const info = LIGNES_LIO.find(l => l.num === numLigne) || {num: numLigne, nom: numLigne, color:'#E31E24'};
+  const color = info.color || '#E31E24';
+  const now = new Date();
+  const depMin = now.getHours() * 60 + now.getMinutes();
+
+  // Générer horaires GTFS pour cet arrêt sur cette ligne
+  let horairesHTML = '';
+  if (arretLat && arretLon) {
+    const departs = getProchainsDepartsGTFS(arretName || '', {lat: parseFloat(arretLat), lon: parseFloat(arretLon)});
+    const depLigne = departs.filter(d => d.line === numLigne);
+    if (depLigne.length) {
+      horairesHTML = `<div style="margin-bottom:16px">
+        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#7a9a8e;margin-bottom:10px">
+          🕐 Prochains départs${arretName ? ' — ' + arretName : ''}
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${depLigne.slice(0,6).map((d,i) => `
+            <div style="background:${i===0?color+'22':'#f8f8f8'};border:1.5px solid ${i===0?color:'#ddd'};border-radius:10px;padding:8px 14px;text-align:center;min-width:64px">
+              <div style="font-weight:800;font-size:1rem;color:${i===0?color:'#1a1a1a'}">${d.time}</div>
+              <div style="font-size:0.62rem;color:#888;margin-top:2px">📅 indicatif</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    } else {
+      // Horaires génériques toutes les 30 min
+      const slots = [];
+      for (let i = 0; i < 5; i++) slots.push(minToTime(depMin + 5 + i * 30));
+      horairesHTML = `<div style="margin-bottom:16px">
+        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#7a9a8e;margin-bottom:10px">🕐 Prochains passages estimés</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${slots.map((h,i) => `
+            <div style="background:${i===0?color+'22':'#f8f8f8'};border:1.5px solid ${i===0?color:'#ddd'};border-radius:10px;padding:8px 14px;text-align:center;min-width:64px">
+              <div style="font-weight:800;font-size:1rem;color:${i===0?color:'#1a1a1a'}">${h}</div>
+              <div style="font-size:0.62rem;color:#888;margin-top:2px">📅 indicatif</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    }
+  }
+
+  // Arrêts de la ligne
+  const arretsDeLigne = ARRETS_LIO.filter(a => {
+    if (!a.lat || !a.lon || !info.shape) return false;
+    return info.shape.some(pt => distanceKm({lat:a.lat,lon:a.lon},{lat:pt[0],lon:pt[1]}) < 0.4);
+  }).slice(0, 8);
+
+  const arretsHTML = arretsDeLigne.length ? `
+    <div style="margin-bottom:16px">
+      <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#7a9a8e;margin-bottom:10px">🚏 Arrêts desservis (${arretsDeLigne.length})</p>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${arretsDeLigne.map((a, i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:${arretName&&normaliser(a.name)===normaliser(arretName)?color+'15':'#f9f9f9'};border:1px solid ${arretName&&normaliser(a.name)===normaliser(arretName)?color:'#eee'}">
+            <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
+            <span style="font-size:0.82rem;font-weight:${arretName&&normaliser(a.name)===normaliser(arretName)?'700':'400'}">${a.name}</span>
+            ${i===0?`<span style="margin-left:auto;font-size:0.65rem;background:#e8f9e8;color:#1a7a1a;padding:1px 6px;border-radius:6px">Terminus</span>`:''}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
 
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
   modal.classList.add('modal-overlay');
-  modal.innerHTML = `<div style="background:white;border-radius:20px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 12px 48px rgba(0,0,0,0.2)">
+  modal.innerHTML = `<div style="background:white;border-radius:20px;max-width:540px;width:100%;max-height:88vh;overflow-y:auto;padding:28px;box-shadow:0 12px 48px rgba(0,0,0,0.2)">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
       <div>
-        <div style="display:inline-flex;align-items:center;background:${color}22;color:${color};border:1.5px solid ${color};padding:4px 14px;border-radius:100px;font-weight:800;font-size:1.1rem;margin-bottom:8px">${info.num}</div>
-        <h2 style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;margin:0">${info.nom}</h2>
-        <p style="font-size:0.78rem;color:#7a9a8e;margin-top:4px">Réseau Mobby Occitanie</p>
+        <div style="display:inline-flex;align-items:center;background:${color};color:white;padding:4px 14px;border-radius:100px;font-weight:800;font-size:1.1rem;margin-bottom:6px">${info.num}</div>
+        <h2 style="font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:800;margin:0">${info.nom}</h2>
+        ${arretName ? `<p style="font-size:0.78rem;color:#7a9a8e;margin-top:3px">🚏 ${arretName}</p>` : '<p style="font-size:0.78rem;color:#7a9a8e;margin-top:3px">Réseau Mobby Occitanie</p>'}
       </div>
       <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;cursor:pointer;font-size:1.5rem;color:#7a9a8e;padding:0 4px">✕</button>
     </div>
 
-    <div style="background:#fff8e0;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:0.82rem;color:#7a5500">
-      ℹ️ Les horaires détaillés sont disponibles sur le site officiel Mobby Occitanie.
-      Cette application affiche les données de tracé et les arrêts desservis.
+    <div style="background:#fff8e0;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:0.78rem;color:#7a5500;display:flex;align-items:center;gap:8px">
+      📦 <span>Horaires <strong>indicatifs</strong> calculés depuis les données GTFS locales</span>
     </div>
 
-    <div style="margin-bottom:16px">
-      <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#7a9a8e;margin-bottom:10px">🗺️ Tracé de la ligne</p>
-      <div id="mini-map-${info.num}" style="height:160px;border-radius:12px;overflow:hidden;border:1.5px solid var(--border)"></div>
-    </div>
+    ${horairesHTML}
+    ${arretsHTML}
 
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button id="btn-voir-tracé-modal" 
-        style="background:${color};color:white;border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:600;font-size:0.85rem">
-        🗺️ Voir sur la grande carte</button>
-      <a href="https://lio.laregion.fr/ligne-${info.num}" target="_blank"
-        style="background:white;color:${color};border:1.5px solid ${color};padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600;font-size:0.85rem">
-        🌐 Horaires officiels Mobby</a>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="btn-voir-trace-modal-${info.num}"
+        style="background:${color};color:white;border:none;padding:9px 14px;border-radius:10px;cursor:pointer;font-weight:600;font-size:0.82rem">
+        🗺️ Voir tracé</button>
+      <a href="https://lio.laregion.fr" target="_blank"
+        style="background:white;color:${color};border:1.5px solid ${color};padding:9px 14px;border-radius:10px;text-decoration:none;font-weight:600;font-size:0.82rem">
+        🌐 Horaires officiels</a>
       <button onclick="this.closest('.modal-overlay').remove()"
-        style="background:#f7fbf9;color:#0d1f1a;border:1.5px solid #d4ede4;padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:600;font-size:0.85rem">
+        style="background:#f0f0f0;color:#444;border:none;padding:9px 14px;border-radius:10px;cursor:pointer;font-weight:600;font-size:0.82rem">
         Fermer</button>
     </div>
   </div>`;
@@ -3102,21 +3503,12 @@ function showHoraires(numLigne) {
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
-  // Mini-carte du tracé
   setTimeout(() => {
-    const btn = document.getElementById('btn-voir-tracé-modal');
+    const btn = document.getElementById('btn-voir-trace-modal-' + info.num);
     if (btn) btn.addEventListener('click', () => { showLigneOnMap(info); modal.remove(); });
-
-    const mapEl = document.getElementById('mini-map-' + info.num);
-    if (!mapEl || !info.shape || info.shape.length < 2) return;
-    try {
-      const miniMap = L.map(mapEl, {zoomControl:false, attributionControl:false, dragging:false, scrollWheelZoom:false});
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(miniMap);
-      const poly = L.polyline(info.shape, {color, weight:4, opacity:0.9}).addTo(miniMap);
-      miniMap.fitBounds(poly.getBounds(), {padding:[10,10]});
-    } catch(e) {}
-  }, 200);
+  }, 100);
 }
+
 
 function showLignesModal() {
   const modal = document.createElement('div');
