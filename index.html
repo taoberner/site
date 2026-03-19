@@ -3981,32 +3981,41 @@ function aiAddMessage(role, text) {
 
 function aiHandleAction(action) {
   const a = action.toLowerCase();
+
+  // Fonction pour fermer le chat proprement (sans toggle)
+  function closeChat() {
+    aiChatOpen = false;
+    document.getElementById('aiChatWindow')?.classList.remove('open');
+    document.getElementById('aiBubbleBtn')?.classList.remove('open');
+    const icon = document.getElementById('aiBubbleIcon');
+    if (icon) icon.textContent = '🤖';
+  }
+
   if (action.includes('→')) {
-    // Trajet pré-rempli : "Départ → Arrivée"
     const parts = action.split('→').map(s => s.trim());
     if (parts.length === 2) {
       document.getElementById('inputFrom').value = parts[0];
       document.getElementById('inputTo').value = parts[1];
       state.fromLabel = parts[0]; state.toLabel = parts[1];
       state.fromCoords = null; state.toCoords = null;
+      closeChat();
       showPage('search');
-      toggleAIChat();
       showNotification('🚌 Trajet pré-rempli ! Cliquez sur Rechercher.');
     }
   } else if (a.includes('trajet') || a.includes('recherch') || a.includes('planif')) {
-    showPage('search'); toggleAIChat();
+    closeChat(); showPage('search');
   } else if (a.includes('carte')) {
-    showPage('map'); toggleAIChat();
+    closeChat(); showPage('map');
   } else if (a.includes('ligne')) {
-    showPage('lignes'); toggleAIChat();
+    closeChat(); showPage('lignes');
   } else if (a.includes('accessib') || a.includes('pmr')) {
-    showPage('access'); toggleAIChat();
-  } else if (a.includes('clé') || a.includes('cle') || a.includes('api') || a.includes('configur')) {
+    closeChat(); showPage('access');
+  } else if (a.includes('clé') || a.includes('cle') || a.includes('api') || a.includes('configur') || a.includes('reconfig')) {
     showApiKeyModal();
   } else if (a.includes('billet') || a.includes('ticket')) {
-    showPage('billets'); toggleAIChat();
+    closeChat(); showPage('billets');
   } else if (a.includes('horaire') || a.includes('départ') || a.includes('depart')) {
-    showPage('search'); toggleAIChat();
+    closeChat(); showPage('search');
   }
 }
 
