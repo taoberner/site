@@ -1705,7 +1705,9 @@ function closeMobileNav() {
 }
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
+  const page = document.getElementById('page-' + id);
+  if (!page) return;
+  page.classList.add('active');
   document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
   const navMap = { home:'nav-home', search:'nav-search', results:'nav-search', map:'nav-map', lignes:'nav-lignes', access:'nav-access', about:'nav-about', billets:'nav-billets' };
   const navEl = document.getElementById(navMap[id]);
@@ -1713,6 +1715,8 @@ function showPage(id) {
   window.scrollTo(0, 0);
   if (id === 'map') initMap();
   if (id === 'lignes') setTimeout(renderLignesPage, 50);
+  // Réappliquer les traductions à chaque navigation
+  applyTranslations();
 }
 
 /* =====================================================
@@ -3716,9 +3720,31 @@ const TRANSLATIONS = {
   fr: {
     nav_home: 'Accueil', nav_search: 'Rechercher', nav_map: 'Carte',
     nav_lignes: 'Lignes', nav_access: 'Accessibilité', nav_about: 'À propos',
-    nav_cta: 'Planifier mon trajet',
+    nav_cta: 'Planifier mon trajet', nav_billets: '🎟️ Billets',
     search_from: 'Départ', search_to: 'Arrivée',
     search_btn: '🔍 Rechercher un itinéraire',
+    search_title: 'Planifier mon trajet', search_sub: 'Renseignez votre itinéraire pour trouver le meilleur trajet en transport en commun.',
+    search_date: 'Date', search_time: 'Heure de départ',
+    search_prefs: 'Mes préférences de trajet', search_profile: 'Mon profil voyageur',
+    map_title: 'Carte interactive', map_sub: 'Visualisez votre trajet sur la carte OpenStreetMap',
+    lignes_title: 'Lignes du réseau', lignes_sub: 'Consultez les horaires en temps réel de toutes les lignes du réseau Mobby.',
+    access_title: 'Une mobilité pensée pour tous', access_sub: "Adaptez l'interface selon vos besoins pour une expérience optimale.",
+    access_opts: "Options d'accessibilité", access_opts_sub: 'Activez les options qui vous correspondent.',
+    access_profiles: 'Profils adaptés', access_profiles_sub: "Chaque profil ajuste automatiquement l'interface et les résultats.",
+    hero_badge: 'Mobilité intelligente · Hérault',
+    hero_h1: 'Planifiez vos<br>trajets <span style="color:var(--green)">autrement</span>',
+    hero_sub: 'Combinez bus, marche et vélo avec une information claire, accessible et plus durable.',
+    hero_btn_plan: '🗺️ Planifier mon trajet', hero_btn_access: '♿ Mode accessible',
+    promise_simple: 'Simple', promise_simple_desc: "Des trajets compréhensibles en un coup d'œil, sans jargon.",
+    promise_inclusive: 'Inclusif', promise_inclusive_desc: 'Une interface pensée pour tous : PMR, seniors, touristes, personnes pressées.',
+    promise_eco: 'Écologique', promise_eco_desc: 'Des déplacements plus responsables avec un score carbone comparé à la voiture.',
+    how_label: 'Comment ça marche', how_title: '3 étapes pour votre trajet idéal',
+    how1_title: 'Entrez départ & arrivée', how1_desc: "Tapez votre point de départ et votre destination — l'autocomplete suggère les arrêts Mobby.",
+    how2_title: 'Choisissez vos préférences', how2_desc: 'Profil voyageur, critères de trajet, accessibilité — vous personnalisez tout.',
+    how3_title: 'Découvrez votre trajet', how3_desc: 'Un itinéraire adapté via Navitia, une carte Leaflet interactive, un score écologique.',
+    footer_about: 'À propos du projet',
+    billet_step1: 'Choisir', billet_step2: 'Panier', billet_step3: 'Paiement', billet_step4: 'Confirmation',
+    btn_ajouter: '🛒 Ajouter', btn_souscrire: '✅ Souscrire',
     ai_placeholder: 'Ex: Je veux aller de Béziers à Montpellier demain matin...',
     ai_greeting: "Bonjour ! Je suis l'assistant Mobby 🤖\n\nJe peux vous aider à :\n• **Planifier votre trajet** en langage naturel\n• **Répondre à vos questions** sur le réseau Mobby\n• **Trouver des informations** sur les lignes et arrêts\n\nComment puis-je vous aider ?",
     ai_suggestions: ['🚌 Trouver un trajet', '🗺️ Voir les lignes', '♿ Accessibilité PMR', '🕐 Horaires aujourd\'hui'],
@@ -3726,9 +3752,31 @@ const TRANSLATIONS = {
   en: {
     nav_home: 'Home', nav_search: 'Search', nav_map: 'Map',
     nav_lignes: 'Lines', nav_access: 'Accessibility', nav_about: 'About',
-    nav_cta: 'Plan my trip',
+    nav_cta: 'Plan my trip', nav_billets: '🎟️ Tickets',
     search_from: 'From', search_to: 'To',
     search_btn: '🔍 Search itinerary',
+    search_title: 'Plan my trip', search_sub: 'Enter your journey details to find the best public transport route.',
+    search_date: 'Date', search_time: 'Departure time',
+    search_prefs: 'My journey preferences', search_profile: 'My traveller profile',
+    map_title: 'Interactive map', map_sub: 'Visualize your journey on the OpenStreetMap map',
+    lignes_title: 'Network lines', lignes_sub: 'Check real-time timetables for all Mobby network lines.',
+    access_title: 'Mobility designed for everyone', access_sub: 'Adapt the interface to your needs for an optimal experience.',
+    access_opts: 'Accessibility options', access_opts_sub: 'Enable the options that suit you.',
+    access_profiles: 'Adapted profiles', access_profiles_sub: 'Each profile automatically adjusts the interface and results.',
+    hero_badge: 'Smart Mobility · Hérault',
+    hero_h1: 'Plan your<br>trips <span style="color:var(--green)">differently</span>',
+    hero_sub: 'Combine bus, walking and cycling with clear, accessible, sustainable information.',
+    hero_btn_plan: '🗺️ Plan my trip', hero_btn_access: '♿ Accessible mode',
+    promise_simple: 'Simple', promise_simple_desc: 'Easy-to-understand journeys at a glance, no jargon.',
+    promise_inclusive: 'Inclusive', promise_inclusive_desc: 'An interface designed for everyone: disabled, seniors, tourists.',
+    promise_eco: 'Eco-friendly', promise_eco_desc: 'More responsible travel with a carbon score compared to the car.',
+    how_label: 'How it works', how_title: '3 steps to your ideal journey',
+    how1_title: 'Enter departure & arrival', how1_desc: 'Type your starting point and destination — autocomplete suggests Mobby stops.',
+    how2_title: 'Choose your preferences', how2_desc: 'Traveller profile, journey criteria, accessibility — you customise everything.',
+    how3_title: 'Discover your journey', how3_desc: 'An adapted itinerary via Navitia, an interactive Leaflet map, an ecological score.',
+    footer_about: 'About the project',
+    billet_step1: 'Choose', billet_step2: 'Cart', billet_step3: 'Payment', billet_step4: 'Confirm',
+    btn_ajouter: '🛒 Add', btn_souscrire: '✅ Subscribe',
     ai_placeholder: 'E.g.: I want to go from Béziers to Montpellier tomorrow morning...',
     ai_greeting: "Hello! I'm the Mobby assistant 🤖\n\nI can help you:\n• **Plan your journey** in natural language\n• **Answer your questions** about the Mobby network\n• **Find information** about lines and stops\n\nHow can I help you?",
     ai_suggestions: ['🚌 Find a journey', '🗺️ View lines', '♿ PMR Accessibility', '🕐 Today\'s timetables'],
@@ -3739,6 +3787,14 @@ const TRANSLATIONS = {
     nav_cta: 'Planificar mi viaje',
     search_from: 'Salida', search_to: 'Llegada',
     search_btn: '🔍 Buscar itinerario',
+    search_title: 'Planificar mi viaje', search_sub: 'Ingrese su itinerario para encontrar la mejor ruta de transporte público.',
+    search_date: 'Fecha', search_time: 'Hora de salida',
+    search_prefs: 'Mis preferencias de viaje', search_profile: 'Mi perfil de viajero',
+    map_title: 'Mapa interactivo', map_sub: 'Visualice su viaje en el mapa OpenStreetMap',
+    lignes_title: 'Líneas de la red', lignes_sub: 'Consulte los horarios en tiempo real de todas las líneas de la red Mobby.',
+    access_title: 'Una movilidad pensada para todos', access_sub: 'Adapte la interfaz según sus necesidades para una experiencia óptima.',
+    access_opts: 'Opciones de accesibilidad', access_opts_sub: 'Active las opciones que le correspondan.',
+    access_profiles: 'Perfiles adaptados', access_profiles_sub: 'Cada perfil ajusta automáticamente la interfaz y los resultados.',
     ai_placeholder: 'Ej: Quiero ir de Béziers a Montpellier mañana por la mañana...',
     ai_greeting: "¡Hola! Soy el asistente Mobby 🤖\n\nPuedo ayudarle a:\n• **Planificar su viaje** en lenguaje natural\n• **Responder sus preguntas** sobre la red Mobby\n• **Encontrar información** sobre líneas y paradas\n\n¿Cómo puedo ayudarle?",
     ai_suggestions: ['🚌 Encontrar viaje', '🗺️ Ver líneas', '♿ Accesibilidad PMR', '🕐 Horarios hoy'],
@@ -3749,6 +3805,14 @@ const TRANSLATIONS = {
     nav_cta: 'Meine Reise planen',
     search_from: 'Abfahrt', search_to: 'Ankunft',
     search_btn: '🔍 Route suchen',
+    search_title: 'Meine Reise planen', search_sub: 'Geben Sie Ihre Reisedaten ein, um die beste ÖPNV-Route zu finden.',
+    search_date: 'Datum', search_time: 'Abfahrtszeit',
+    search_prefs: 'Meine Reiseeinstellungen', search_profile: 'Mein Reiseprofil',
+    map_title: 'Interaktive Karte', map_sub: 'Visualisieren Sie Ihre Reise auf der OpenStreetMap-Karte',
+    lignes_title: 'Netzlinien', lignes_sub: 'Prüfen Sie Echtzeit-Fahrpläne aller Mobby-Netzlinien.',
+    access_title: 'Mobilität für alle', access_sub: 'Passen Sie die Oberfläche an Ihre Bedürfnisse an.',
+    access_opts: 'Barrierefreiheitsoptionen', access_opts_sub: 'Aktivieren Sie die für Sie passenden Optionen.',
+    access_profiles: 'Angepasste Profile', access_profiles_sub: 'Jedes Profil passt die Oberfläche automatisch an.',
     ai_placeholder: 'Z.B.: Ich möchte morgen früh von Béziers nach Montpellier fahren...',
     ai_greeting: "Hallo! Ich bin der Mobby-Assistent 🤖\n\nIch kann Ihnen helfen:\n• **Ihre Reise planen** in natürlicher Sprache\n• **Ihre Fragen beantworten** zum Mobby-Netz\n• **Informationen finden** zu Linien und Haltestellen\n\nWie kann ich Ihnen helfen?",
     ai_suggestions: ['🚌 Reise finden', '🗺️ Linien anzeigen', '♿ Barrierefreiheit', '🕐 Fahrplan heute'],
@@ -3759,6 +3823,14 @@ const TRANSLATIONS = {
     nav_cta: 'Pianifica il mio viaggio',
     search_from: 'Partenza', search_to: 'Arrivo',
     search_btn: '🔍 Cerca itinerario',
+    search_title: 'Pianifica il mio viaggio', search_sub: 'Inserisci il tuo itinerario per trovare il percorso migliore.',
+    search_date: 'Data', search_time: 'Orario di partenza',
+    search_prefs: 'Le mie preferenze', search_profile: 'Il mio profilo viaggiatore',
+    map_title: 'Mappa interattiva', map_sub: 'Visualizza il tuo percorso sulla mappa OpenStreetMap',
+    lignes_title: 'Linee della rete', lignes_sub: 'Consulta gli orari in tempo reale di tutte le linee Mobby.',
+    access_title: 'Una mobilità pensata per tutti', access_sub: "Adatta l'interfaccia alle tue esigenze.",
+    access_opts: 'Opzioni di accessibilità', access_opts_sub: 'Attiva le opzioni adatte a te.',
+    access_profiles: 'Profili adattati', access_profiles_sub: "Ogni profilo adatta automaticamente l'interfaccia.",
     ai_placeholder: 'Es: Voglio andare da Béziers a Montpellier domani mattina...',
     ai_greeting: "Ciao! Sono l'assistente Mobby 🤖\n\nPosso aiutarti a:\n• **Pianificare il tuo viaggio** in linguaggio naturale\n• **Rispondere alle domande** sulla rete Mobby\n• **Trovare informazioni** su linee e fermate\n\nCome posso aiutarti?",
     ai_suggestions: ['🚌 Trova viaggio', '🗺️ Vedi linee', '♿ Accessibilità PMR', '🕐 Orari oggi'],
@@ -3769,6 +3841,14 @@ const TRANSLATIONS = {
     nav_cta: 'Planear minha viagem',
     search_from: 'Partida', search_to: 'Chegada',
     search_btn: '🔍 Pesquisar itinerário',
+    search_title: 'Planear minha viagem', search_sub: 'Introduza o seu itinerário para encontrar a melhor rota.',
+    search_date: 'Data', search_time: 'Hora de partida',
+    search_prefs: 'As minhas preferências', search_profile: 'O meu perfil de viajante',
+    map_title: 'Mapa interativo', map_sub: 'Visualize a sua viagem no mapa OpenStreetMap',
+    lignes_title: 'Linhas da rede', lignes_sub: 'Consulte os horários em tempo real de todas as linhas Mobby.',
+    access_title: 'Uma mobilidade pensada para todos', access_sub: 'Adapte a interface às suas necessidades.',
+    access_opts: 'Opções de acessibilidade', access_opts_sub: 'Ative as opções que lhe correspondem.',
+    access_profiles: 'Perfis adaptados', access_profiles_sub: 'Cada perfil ajusta automaticamente a interface.',
     ai_placeholder: 'Ex: Quero ir de Béziers para Montpellier amanhã de manhã...',
     ai_greeting: "Olá! Sou o assistente Mobby 🤖\n\nPosso ajudá-lo a:\n• **Planear a sua viagem** em linguagem natural\n• **Responder às suas perguntas** sobre a rede Mobby\n• **Encontrar informações** sobre linhas e paragens\n\nComo posso ajudá-lo?",
     ai_suggestions: ['🚌 Encontrar viagem', '🗺️ Ver linhas', '♿ Acessibilidade PMR', '🕐 Horários hoje'],
@@ -3779,6 +3859,14 @@ const TRANSLATIONS = {
     nav_cta: 'تخطيط رحلتي',
     search_from: 'المغادرة', search_to: 'الوصول',
     search_btn: '🔍 البحث عن مسار',
+    search_title: 'تخطيط رحلتي', search_sub: 'أدخل بيانات رحلتك للعثور على أفضل مسار.',
+    search_date: 'التاريخ', search_time: 'وقت المغادرة',
+    search_prefs: 'تفضيلاتي', search_profile: 'ملف المسافر',
+    map_title: 'الخريطة التفاعلية', map_sub: 'تصور رحلتك على خريطة OpenStreetMap',
+    lignes_title: 'خطوط الشبكة', lignes_sub: 'تحقق من جداول الرحلات الفعلية لجميع خطوط Mobby.',
+    access_title: 'تنقل مصمم للجميع', access_sub: 'اضبط الواجهة وفق احتياجاتك.',
+    access_opts: 'خيارات إمكانية الوصول', access_opts_sub: 'فعّل الخيارات المناسبة لك.',
+    access_profiles: 'ملفات مكيّفة', access_profiles_sub: 'كل ملف يضبط الواجهة تلقائياً.',
     ai_placeholder: 'مثال: أريد الذهاب من بيزيه إلى مونبلييه غداً صباحاً...',
     ai_greeting: "مرحباً! أنا مساعد Mobby 🤖\n\nيمكنني مساعدتك في:\n• **تخطيط رحلتك** بلغة طبيعية\n• **الإجابة على أسئلتك** حول شبكة Mobby\n• **إيجاد معلومات** حول الخطوط والمحطات\n\nكيف يمكنني مساعدتك؟",
     ai_suggestions: ['🚌 إيجاد رحلة', '🗺️ عرض الخطوط', '♿ إمكانية الوصول', '🕐 مواعيد اليوم'],
@@ -3789,6 +3877,14 @@ const TRANSLATIONS = {
     nav_cta: '规划我的行程',
     search_from: '出发地', search_to: '目的地',
     search_btn: '🔍 搜索路线',
+    search_title: '规划我的行程', search_sub: '输入您的行程信息，找到最佳公交路线。',
+    search_date: '日期', search_time: '出发时间',
+    search_prefs: '我的出行偏好', search_profile: '我的旅行者档案',
+    map_title: '互动地图', map_sub: '在OpenStreetMap地图上可视化您的行程',
+    lignes_title: '网络线路', lignes_sub: '查看所有Mobby网络线路的实时时刻表。',
+    access_title: '为所有人设计的出行', access_sub: '根据您的需求调整界面。',
+    access_opts: '无障碍选项', access_opts_sub: '启用适合您的选项。',
+    access_profiles: '自适应档案', access_profiles_sub: '每个档案自动调整界面和结果。',
     ai_placeholder: '例如：我想明天早上从贝济耶到蒙彼利埃...',
     ai_greeting: "您好！我是Mobby助手 🤖\n\n我可以帮助您：\n• **用自然语言规划行程**\n• **回答关于Mobby网络的问题**\n• **查找线路和站点信息**\n\n有什么可以帮助您的？",
     ai_suggestions: ['🚌 查找行程', '🗺️ 查看线路', '♿ 无障碍服务', '🕐 今日时刻表'],
@@ -3799,6 +3895,14 @@ const TRANSLATIONS = {
     nav_cta: 'Plan mijn reis',
     search_from: 'Vertrek', search_to: 'Aankomst',
     search_btn: '🔍 Route zoeken',
+    search_title: 'Plan mijn reis', search_sub: 'Voer uw reisgegevens in om de beste OV-route te vinden.',
+    search_date: 'Datum', search_time: 'Vertrektijd',
+    search_prefs: 'Mijn reisvoorkeuren', search_profile: 'Mijn reizigersprofiel',
+    map_title: 'Interactieve kaart', map_sub: 'Visualiseer uw reis op de OpenStreetMap-kaart',
+    lignes_title: 'Netwerklijnen', lignes_sub: 'Bekijk realtime dienstregelingen van alle Mobby-lijnen.',
+    access_title: 'Mobiliteit voor iedereen', access_sub: 'Pas de interface aan uw behoeften aan.',
+    access_opts: 'Toegankelijkheidsopties', access_opts_sub: 'Activeer de opties die bij u passen.',
+    access_profiles: 'Aangepaste profielen', access_profiles_sub: 'Elk profiel past de interface automatisch aan.',
     ai_placeholder: 'Bijv: Ik wil morgenochtend van Béziers naar Montpellier...',
     ai_greeting: "Hallo! Ik ben de Mobby-assistent 🤖\n\nIk kan u helpen met:\n• **Uw reis plannen** in natuurlijke taal\n• **Uw vragen beantwoorden** over het Mobby-netwerk\n• **Informatie vinden** over lijnen en haltes\n\nHoe kan ik u helpen?",
     ai_suggestions: ['🚌 Reis vinden', '🗺️ Lijnen bekijken', '♿ PMR Toegankelijkheid', '🕐 Dienstregeling vandaag'],
@@ -3809,6 +3913,14 @@ const TRANSLATIONS = {
     nav_cta: 'Спланировать поездку',
     search_from: 'Откуда', search_to: 'Куда',
     search_btn: '🔍 Найти маршрут',
+    search_title: 'Спланировать поездку', search_sub: 'Введите данные маршрута для поиска лучшего пути.',
+    search_date: 'Дата', search_time: 'Время отправления',
+    search_prefs: 'Мои предпочтения', search_profile: 'Мой профиль путешественника',
+    map_title: 'Интерактивная карта', map_sub: 'Визуализируйте маршрут на карте OpenStreetMap',
+    lignes_title: 'Линии сети', lignes_sub: 'Проверьте расписание в реальном времени для всех линий Mobby.',
+    access_title: 'Мобильность для всех', access_sub: 'Настройте интерфейс под свои нужды.',
+    access_opts: 'Параметры доступности', access_opts_sub: 'Включите подходящие параметры.',
+    access_profiles: 'Адаптированные профили', access_profiles_sub: 'Каждый профиль автоматически настраивает интерфейс.',
     ai_placeholder: 'Например: Хочу завтра утром поехать из Безье в Монпелье...',
     ai_greeting: "Здравствуйте! Я ассистент Mobby 🤖\n\nЯ могу помочь вам:\n• **Спланировать поездку** на естественном языке\n• **Ответить на вопросы** о сети Mobby\n• **Найти информацию** о маршрутах и остановках\n\nКак я могу вам помочь?",
     ai_suggestions: ['🚌 Найти маршрут', '🗺️ Смотреть линии', '♿ Доступность', '🕐 Расписание сегодня'],
@@ -3859,6 +3971,67 @@ function applyTranslations() {
 
   // CTA nav
   document.querySelectorAll('.nav-cta').forEach(el => el.textContent = tr.nav_cta);
+
+  // Page Recherche
+  const searchInner = document.querySelector('.search-inner');
+  if (searchInner) {
+    const h1 = searchInner.querySelector('h1');
+    const p = searchInner.querySelector('p');
+    if (h1) h1.textContent = tr.search_title || h1.textContent;
+    if (p) p.textContent = tr.search_sub || p.textContent;
+  }
+  const labelFrom = document.querySelector('label[for="inputFrom"], .form-group label:first-of-type');
+  const labelTo   = document.querySelector('label[for="inputTo"]');
+  document.querySelectorAll('.form-group label').forEach(lbl => {
+    if (lbl.textContent.includes('Départ') || lbl.textContent.includes('From') || lbl.textContent.includes('Abfahrt') || lbl.textContent.includes('Salida') || lbl.textContent.includes('Vertrek') || lbl.textContent.includes('Откуда') || lbl.textContent.includes('出发') || lbl.textContent.includes('المغادرة') || lbl.textContent.includes('Partenza') || lbl.textContent.includes('Partida')) {
+      lbl.textContent = '📍 ' + tr.search_from;
+    } else if (lbl.textContent.includes('Arrivée') || lbl.textContent.includes('To') || lbl.textContent.includes('Ankunft') || lbl.textContent.includes('Llegada') || lbl.textContent.includes('Aankomst') || lbl.textContent.includes('Куда') || lbl.textContent.includes('目的') || lbl.textContent.includes('الوصول') || lbl.textContent.includes('Arrivo') || lbl.textContent.includes('Chegada')) {
+      lbl.textContent = '🏁 ' + tr.search_to;
+    } else if (lbl.textContent.includes('Date') || lbl.textContent.includes('Datum') || lbl.textContent.includes('Fecha') || lbl.textContent.includes('التاريخ') || lbl.textContent.includes('日期') || lbl.textContent.includes('Data')) {
+      lbl.textContent = '📅 ' + tr.search_date;
+    } else if (lbl.textContent.includes('Heure') || lbl.textContent.includes('Time') || lbl.textContent.includes('Zeit') || lbl.textContent.includes('Hora') || lbl.textContent.includes('وقت') || lbl.textContent.includes('时间') || lbl.textContent.includes('Tijd') || lbl.textContent.includes('Время') || lbl.textContent.includes('Orario')) {
+      lbl.textContent = '🕐 ' + tr.search_time;
+    }
+  });
+  document.querySelectorAll('.form-card h2').forEach(h2 => {
+    if (h2.textContent.includes('préférences') || h2.textContent.includes('preferences') || h2.textContent.includes('Einstellungen') || h2.textContent.includes('preferencias') || h2.textContent.includes('voorkeuren') || h2.textContent.includes('предпочтения') || h2.textContent.includes('偏好') || h2.textContent.includes('تفضيل') || h2.textContent.includes('preferenze') || h2.textContent.includes('preferências')) {
+      h2.textContent = tr.search_prefs;
+    } else if (h2.textContent.includes('profil') || h2.textContent.includes('profile') || h2.textContent.includes('Profil') || h2.textContent.includes('perfil') || h2.textContent.includes('profiel') || h2.textContent.includes('профиль') || h2.textContent.includes('档案') || h2.textContent.includes('ملف') || h2.textContent.includes('profilo')) {
+      h2.textContent = tr.search_profile;
+    }
+  });
+
+  // Page Carte
+  const mapInner = document.querySelector('.map-inner');
+  if (mapInner) {
+    const h1 = mapInner.querySelector('h1');
+    const p = document.getElementById('mapSubtitle');
+    if (h1) h1.textContent = tr.map_title || h1.textContent;
+    if (p) p.textContent = tr.map_sub || p.textContent;
+  }
+
+  // Page Lignes
+  const lignesInner = document.querySelector('.lignes-page, #page-lignes .section-inner, #page-lignes > div > div');
+  if (lignesInner) {
+    const h1 = document.querySelector('#page-lignes h1');
+    const p  = document.querySelector('#page-lignes > div > div > p');
+    if (h1) h1.textContent = tr.lignes_title || h1.textContent;
+    if (p)  p.textContent  = tr.lignes_sub  || p.textContent;
+  }
+
+  // Page Accessibilité
+  const accessH1 = document.querySelector('#page-access h1');
+  const accessSub = document.querySelector('#page-access .access-inner > p');
+  const accessOptsH2 = document.querySelector('.access-controls h2');
+  const accessOptsSub = document.querySelector('.access-controls p');
+  const accessProfsH2 = document.querySelector('.profiles-section h2');
+  const accessProfsSub = document.querySelector('.profiles-section p');
+  if (accessH1) accessH1.textContent = tr.access_title || accessH1.textContent;
+  if (accessSub) accessSub.textContent = tr.access_sub || accessSub.textContent;
+  if (accessOptsH2) accessOptsH2.textContent = tr.access_opts || accessOptsH2.textContent;
+  if (accessOptsSub) accessOptsSub.textContent = tr.access_opts_sub || accessOptsSub.textContent;
+  if (accessProfsH2) accessProfsH2.textContent = tr.access_profiles || accessProfsH2.textContent;
+  if (accessProfsSub) accessProfsSub.textContent = tr.access_profiles_sub || accessProfsSub.textContent;
 
   // Placeholders inputs
   const inFrom = document.getElementById('inputFrom');
@@ -4413,217 +4586,8 @@ function confirmerPaiement() {
    ===================================================== */
 
 // Extension des traductions existantes avec les textes statiques
-const TRANSLATIONS_EXTRA = {
-  fr: {
-    hero_badge: 'Mobilité intelligente · Hérault',
-    hero_h1: 'Planifiez vos<br>trajets <span style="color:var(--green)">autrement</span>',
-    hero_sub: 'Combinez bus, marche et vélo avec une information claire, accessible et plus durable.',
-    hero_btn_plan: '🗺️ Planifier mon trajet',
-    hero_btn_access: '♿ Mode accessible',
-    promise_simple: 'Simple', promise_simple_desc: "Des trajets compréhensibles en un coup d'œil, sans jargon ni surcharge d'information.",
-    promise_inclusive: 'Inclusif', promise_inclusive_desc: 'Une interface pensée pour tous : PMR, seniors, touristes, personnes pressées.',
-    promise_eco: 'Écologique', promise_eco_desc: 'Des déplacements plus responsables avec un score carbone comparé à la voiture.',
-    how_label: 'Comment ça marche',
-    how_title: '3 étapes pour votre trajet idéal',
-    how1_title: 'Entrez départ & arrivée', how1_desc: "Tapez votre point de départ et votre destination — l'autocomplete suggère les arrêts Mobby.",
-    how2_title: 'Choisissez vos préférences', how2_desc: 'Profil voyageur, critères de trajet, accessibilité — vous personnalisez tout.',
-    how3_title: 'Découvrez votre trajet', how3_desc: 'Un itinéraire adapté via Navitia, une carte Leaflet interactive, un score écologique.',
-    footer_tagline: 'Des trajets plus simples, plus verts, plus inclusifs',
-    footer_about: 'À propos du projet',
-    nav_billets: '🎟️ Billets',
-    billet_step1: 'Choisir', billet_step2: 'Panier', billet_step3: 'Paiement', billet_step4: 'Confirmation',
-    btn_ajouter: '🛒 Ajouter', btn_souscrire: '✅ Souscrire',
-  },
-  en: {
-    hero_badge: 'Smart Mobility · Hérault',
-    hero_h1: 'Plan your<br>trips <span style="color:var(--green)">differently</span>',
-    hero_sub: 'Combine bus, walking and cycling with clear, accessible, sustainable information.',
-    hero_btn_plan: '🗺️ Plan my trip',
-    hero_btn_access: '♿ Accessible mode',
-    promise_simple: 'Simple', promise_simple_desc: 'Easy-to-understand journeys at a glance, no jargon or information overload.',
-    promise_inclusive: 'Inclusive', promise_inclusive_desc: 'An interface designed for everyone: disabled, seniors, tourists, people in a hurry.',
-    promise_eco: 'Eco-friendly', promise_eco_desc: 'More responsible travel with a carbon score compared to the car.',
-    how_label: 'How it works',
-    how_title: '3 steps to your ideal journey',
-    how1_title: 'Enter departure & arrival', how1_desc: 'Type your starting point and destination — autocomplete suggests Mobby stops.',
-    how2_title: 'Choose your preferences', how2_desc: 'Traveller profile, journey criteria, accessibility — you customise everything.',
-    how3_title: 'Discover your journey', how3_desc: 'An adapted itinerary via Navitia, an interactive Leaflet map, an ecological score.',
-    footer_tagline: 'Simpler, greener, more inclusive journeys',
-    footer_about: 'About the project',
-    nav_billets: '🎟️ Tickets',
-    billet_step1: 'Choose', billet_step2: 'Cart', billet_step3: 'Payment', billet_step4: 'Confirm',
-    btn_ajouter: '🛒 Add', btn_souscrire: '✅ Subscribe',
-  },
-  es: {
-    hero_badge: 'Movilidad inteligente · Hérault',
-    hero_h1: 'Planifica tus<br>trayectos <span style="color:var(--green)">diferente</span>',
-    hero_sub: 'Combina autobús, caminata y bicicleta con información clara, accesible y sostenible.',
-    hero_btn_plan: '🗺️ Planificar mi viaje',
-    hero_btn_access: '♿ Modo accesible',
-    promise_simple: 'Simple', promise_simple_desc: 'Trayectos fáciles de entender de un vistazo, sin jerga ni sobrecarga de información.',
-    promise_inclusive: 'Inclusivo', promise_inclusive_desc: 'Una interfaz pensada para todos: PMR, mayores, turistas, personas con prisa.',
-    promise_eco: 'Ecológico', promise_eco_desc: 'Desplazamientos más responsables con una puntuación de carbono comparada con el coche.',
-    how_label: 'Cómo funciona',
-    how_title: '3 pasos para tu viaje ideal',
-    how1_title: 'Introduce salida y llegada', how1_desc: 'Escribe tu punto de partida y destino — el autocompletado sugiere las paradas Mobby.',
-    how2_title: 'Elige tus preferencias', how2_desc: 'Perfil de viajero, criterios de ruta, accesibilidad — tú personalizas todo.',
-    how3_title: 'Descubre tu trayecto', how3_desc: 'Un itinerario adaptado vía Navitia, un mapa Leaflet interactivo, puntuación ecológica.',
-    footer_tagline: 'Trayectos más simples, más verdes, más inclusivos',
-    footer_about: 'Sobre el proyecto',
-    nav_billets: '🎟️ Billetes',
-    billet_step1: 'Elegir', billet_step2: 'Carrito', billet_step3: 'Pago', billet_step4: 'Confirmar',
-    btn_ajouter: '🛒 Añadir', btn_souscrire: '✅ Suscribirse',
-  },
-  de: {
-    hero_badge: 'Intelligente Mobilität · Hérault',
-    hero_h1: 'Planen Sie Ihre<br>Reise <span style="color:var(--green)">anders</span>',
-    hero_sub: 'Kombinieren Sie Bus, Gehen und Radfahren mit klaren, zugänglichen und nachhaltigen Informationen.',
-    hero_btn_plan: '🗺️ Meine Reise planen',
-    hero_btn_access: '♿ Barrierefreiheit',
-    promise_simple: 'Einfach', promise_simple_desc: 'Übersichtliche Reisen auf einen Blick, kein Fachjargon.',
-    promise_inclusive: 'Inklusiv', promise_inclusive_desc: 'Eine Oberfläche für alle: Behinderte, Senioren, Touristen, Eilige.',
-    promise_eco: 'Ökologisch', promise_eco_desc: 'Verantwortungsvollere Fortbewegung mit einem CO₂-Vergleich zum Auto.',
-    how_label: 'Wie es funktioniert',
-    how_title: '3 Schritte zur idealen Reise',
-    how1_title: 'Start & Ziel eingeben', how1_desc: 'Geben Sie Start und Ziel ein — Autocomplete schlägt Mobby-Haltestellen vor.',
-    how2_title: 'Präferenzen wählen', how2_desc: 'Reiserprofil, Kriterien, Barrierefreiheit — Sie passen alles an.',
-    how3_title: 'Reise entdecken', how3_desc: 'Eine angepasste Route via Navitia, eine interaktive Karte, ökologische Bewertung.',
-    footer_tagline: 'Einfachere, grünere, inklusivere Reisen',
-    footer_about: 'Über das Projekt',
-    nav_billets: '🎟️ Tickets',
-    billet_step1: 'Wählen', billet_step2: 'Warenkorb', billet_step3: 'Zahlung', billet_step4: 'Bestätigung',
-    btn_ajouter: '🛒 Hinzufügen', btn_souscrire: '✅ Abonnieren',
-  },
-  it: {
-    hero_badge: 'Mobilità intelligente · Hérault',
-    hero_h1: 'Pianifica i tuoi<br>viaggi <span style="color:var(--green)">diversamente</span>',
-    hero_sub: 'Combina autobus, camminata e bicicletta con informazioni chiare, accessibili e sostenibili.',
-    hero_btn_plan: '🗺️ Pianifica il mio viaggio',
-    hero_btn_access: '♿ Modalità accessibile',
-    promise_simple: 'Semplice', promise_simple_desc: 'Viaggi comprensibili a colpo d\'occhio, senza gergo.',
-    promise_inclusive: 'Inclusivo', promise_inclusive_desc: 'Un\'interfaccia pensata per tutti: disabili, anziani, turisti.',
-    promise_eco: 'Ecologico', promise_eco_desc: 'Spostamenti più responsabili con punteggio carbonio vs auto.',
-    how_label: 'Come funziona',
-    how_title: '3 passi per il tuo viaggio ideale',
-    how1_title: 'Inserisci partenza e arrivo', how1_desc: 'Digita punto di partenza e destinazione — l\'autocompletamento suggerisce le fermate Mobby.',
-    how2_title: 'Scegli le tue preferenze', how2_desc: 'Profilo viaggiatore, criteri di viaggio, accessibilità — personalizzi tutto.',
-    how3_title: 'Scopri il tuo itinerario', how3_desc: 'Un itinerario adattato tramite Navitia, una mappa Leaflet interattiva, punteggio ecologico.',
-    footer_tagline: 'Viaggi più semplici, più verdi, più inclusivi',
-    footer_about: 'Sul progetto',
-    nav_billets: '🎟️ Biglietti',
-    billet_step1: 'Scegli', billet_step2: 'Carrello', billet_step3: 'Pagamento', billet_step4: 'Conferma',
-    btn_ajouter: '🛒 Aggiungi', btn_souscrire: '✅ Abbonati',
-  },
-  pt: {
-    hero_badge: 'Mobilidade inteligente · Hérault',
-    hero_h1: 'Planeie as suas<br>viagens <span style="color:var(--green)">diferente</span>',
-    hero_sub: 'Combine autocarro, caminhada e bicicleta com informação clara, acessível e sustentável.',
-    hero_btn_plan: '🗺️ Planear minha viagem',
-    hero_btn_access: '♿ Modo acessível',
-    promise_simple: 'Simples', promise_simple_desc: 'Viagens fáceis de entender, sem jargão.',
-    promise_inclusive: 'Inclusivo', promise_inclusive_desc: 'Uma interface para todos: deficientes, idosos, turistas.',
-    promise_eco: 'Ecológico', promise_eco_desc: 'Deslocações mais responsáveis com pontuação de carbono.',
-    how_label: 'Como funciona',
-    how_title: '3 passos para a sua viagem ideal',
-    how1_title: 'Introduza partida e chegada', how1_desc: 'Digite o seu ponto de partida e destino — o autocomplete sugere paragens Mobby.',
-    how2_title: 'Escolha as suas preferências', how2_desc: 'Perfil de viajante, critérios, acessibilidade — personaliza tudo.',
-    how3_title: 'Descubra a sua viagem', how3_desc: 'Um itinerário adaptado via Navitia, mapa Leaflet interativo, pontuação ecológica.',
-    footer_tagline: 'Viagens mais simples, mais verdes, mais inclusivas',
-    footer_about: 'Sobre o projeto',
-    nav_billets: '🎟️ Bilhetes',
-    billet_step1: 'Escolher', billet_step2: 'Carrinho', billet_step3: 'Pagamento', billet_step4: 'Confirmação',
-    btn_ajouter: '🛒 Adicionar', btn_souscrire: '✅ Subscrever',
-  },
-  ar: {
-    hero_badge: 'تنقل ذكي · هيرو',
-    hero_h1: 'خطط لرحلاتك<br><span style="color:var(--green)">بشكل مختلف</span>',
-    hero_sub: 'اجمع بين الحافلة والمشي والدراجة مع معلومات واضحة ومتاحة ومستدامة.',
-    hero_btn_plan: '🗺️ تخطيط رحلتي',
-    hero_btn_access: '♿ الوضع المتاح',
-    promise_simple: 'بسيط', promise_simple_desc: 'رحلات مفهومة للوهلة الأولى.',
-    promise_inclusive: 'شامل', promise_inclusive_desc: 'واجهة مصممة للجميع.',
-    promise_eco: 'بيئي', promise_eco_desc: 'تنقلات أكثر مسؤولية مع نقاط الكربون.',
-    how_label: 'كيف يعمل',
-    how_title: '3 خطوات لرحلتك المثالية',
-    how1_title: 'أدخل نقطة البداية والوجهة', how1_desc: 'اكتب نقطة انطلاقك ووجهتك.',
-    how2_title: 'اختر تفضيلاتك', how2_desc: 'ملف المسافر ومعايير الرحلة وإمكانية الوصول.',
-    how3_title: 'اكتشف رحلتك', how3_desc: 'مسار مخصص عبر Navitia وخريطة تفاعلية.',
-    footer_tagline: 'رحلات أبسط وأكثر خضرة وشمولاً',
-    footer_about: 'حول المشروع',
-    nav_billets: '🎟️ تذاكر',
-    billet_step1: 'اختيار', billet_step2: 'السلة', billet_step3: 'الدفع', billet_step4: 'التأكيد',
-    btn_ajouter: '🛒 إضافة', btn_souscrire: '✅ اشتراك',
-  },
-  zh: {
-    hero_badge: '智慧出行 · 埃罗省',
-    hero_h1: '以不同方式<br><span style="color:var(--green)">规划您的出行</span>',
-    hero_sub: '结合公交、步行和骑行，获取清晰、便捷、可持续的出行信息。',
-    hero_btn_plan: '🗺️ 规划我的行程',
-    hero_btn_access: '♿ 无障碍模式',
-    promise_simple: '简单', promise_simple_desc: '一目了然的行程，无需专业术语。',
-    promise_inclusive: '包容', promise_inclusive_desc: '为所有人设计的界面。',
-    promise_eco: '环保', promise_eco_desc: '更负责任的出行，含碳排放对比。',
-    how_label: '如何使用',
-    how_title: '3步规划您的理想行程',
-    how1_title: '输入出发地和目的地', how1_desc: '输入您的出发点和目的地，自动补全会建议Mobby站点。',
-    how2_title: '选择您的偏好', how2_desc: '出行者档案、行程标准、无障碍设施——您可以自定义一切。',
-    how3_title: '发现您的行程', how3_desc: '通过Navitia提供的定制路线、Leaflet互动地图和生态评分。',
-    footer_tagline: '更简单、更绿色、更包容的出行',
-    footer_about: '关于项目',
-    nav_billets: '🎟️ 车票',
-    billet_step1: '选择', billet_step2: '购物车', billet_step3: '支付', billet_step4: '确认',
-    btn_ajouter: '🛒 添加', btn_souscrire: '✅ 订阅',
-  },
-  nl: {
-    hero_badge: 'Slimme mobiliteit · Hérault',
-    hero_h1: 'Plan uw<br>reizen <span style="color:var(--green)">anders</span>',
-    hero_sub: 'Combineer bus, wandelen en fietsen met duidelijke, toegankelijke en duurzame informatie.',
-    hero_btn_plan: '🗺️ Plan mijn reis',
-    hero_btn_access: '♿ Toegankelijke modus',
-    promise_simple: 'Eenvoudig', promise_simple_desc: 'Begrijpelijke reizen in één oogopslag.',
-    promise_inclusive: 'Inclusief', promise_inclusive_desc: 'Een interface voor iedereen.',
-    promise_eco: 'Ecologisch', promise_eco_desc: 'Verantwoordelijker reizen met een CO₂-score.',
-    how_label: 'Hoe het werkt',
-    how_title: '3 stappen voor uw ideale reis',
-    how1_title: 'Voer vertrek & aankomst in', how1_desc: 'Typ uw vertrekpunt en bestemming — autocomplete stelt Mobby-haltes voor.',
-    how2_title: 'Kies uw voorkeuren', how2_desc: 'Reizersprofiel, criteria, toegankelijkheid — u past alles aan.',
-    how3_title: 'Ontdek uw reis', how3_desc: 'Een aangepaste route via Navitia, interactieve Leaflet-kaart, ecologische score.',
-    footer_tagline: 'Eenvoudigere, groenere, inclusievere reizen',
-    footer_about: 'Over het project',
-    nav_billets: '🎟️ Tickets',
-    billet_step1: 'Kiezen', billet_step2: 'Winkelwagen', billet_step3: 'Betaling', billet_step4: 'Bevestiging',
-    btn_ajouter: '🛒 Toevoegen', btn_souscrire: '✅ Abonneren',
-  },
-  ru: {
-    hero_badge: 'Умная мобильность · Эро',
-    hero_h1: 'Планируйте свои<br>поездки <span style="color:var(--green)">по-другому</span>',
-    hero_sub: 'Комбинируйте автобус, ходьбу и велосипед с понятной, доступной и устойчивой информацией.',
-    hero_btn_plan: '🗺️ Спланировать поездку',
-    hero_btn_access: '♿ Режим доступности',
-    promise_simple: 'Просто', promise_simple_desc: 'Понятные маршруты с первого взгляда, без жаргона.',
-    promise_inclusive: 'Для всех', promise_inclusive_desc: 'Интерфейс для всех: инвалидов, пожилых, туристов.',
-    promise_eco: 'Экологично', promise_eco_desc: 'Более ответственные поездки с углеродным баллом.',
-    how_label: 'Как это работает',
-    how_title: '3 шага к идеальной поездке',
-    how1_title: 'Введите отправление и прибытие', how1_desc: 'Введите начальную точку и пункт назначения — автодополнение предложит остановки Mobby.',
-    how2_title: 'Выберите предпочтения', how2_desc: 'Профиль путешественника, критерии, доступность — настройте всё.',
-    how3_title: 'Откройте свой маршрут', how3_desc: 'Адаптированный маршрут через Navitia, интерактивная карта Leaflet, экологическая оценка.',
-    footer_tagline: 'Более простые, зелёные и инклюзивные поездки',
-    footer_about: 'О проекте',
-    nav_billets: '🎟️ Билеты',
-    billet_step1: 'Выбрать', billet_step2: 'Корзина', billet_step3: 'Оплата', billet_step4: 'Подтверждение',
-    btn_ajouter: '🛒 Добавить', btn_souscrire: '✅ Подписаться',
-  },
-};
+// TRANSLATIONS_EXTRA fusionné directement dans TRANSLATIONS ci-dessus
 
-// Fusionner dans TRANSLATIONS
-Object.keys(TRANSLATIONS_EXTRA).forEach(lang => {
-  if (TRANSLATIONS[lang]) {
-    Object.assign(TRANSLATIONS[lang], TRANSLATIONS_EXTRA[lang]);
-  }
-});
-
-// Extension applyTranslations — textes statiques
 function applyTranslationsExtra() {
   const tr = TRANSLATIONS[currentLang] || TRANSLATIONS.fr;
 
