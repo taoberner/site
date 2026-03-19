@@ -1608,39 +1608,140 @@ function showNotification(msg) {
 /* =====================================================
    AUTOCOMPLETE — GTFS local + data.laregion.fr
    ===================================================== */
+// Normaliser une chaîne : minuscules + suppression accents
+function normaliser(str) {
+  return (str || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s\-]/g, '');
+}
+
+// Debounce autocomplete
+let _acTimer = null;
 function autocomplete(input, side) {
-  const q = input.value.toLowerCase().trim();
+  clearTimeout(_acTimer);
+  _acTimer = setTimeout(() => _doAutocomplete(input, side), 150);
+}
+
+function _doAutocomplete(input, side) {
+  const raw = input.value.trim();
+  const q = normaliser(raw);
   const listId = 'ac-' + side;
   const list = document.getElementById(listId);
   if (q.length < 2) { list.style.display = 'none'; return; }
 
-  const catLabels = {arret:'Arrêt Mobby',gare:'Gare',covoiturage:'Covoiturage',velo:'Vélo sécurisé',
-    aeroport:'Aéroport',tgv:'TGV',gare_routiere:'Gare routière',pole:"Pôle d'échange"};
+  const catLabels = {arret:'Arrêt Mobby', gare:'Gare', covoiturage:'Covoiturage', velo:'Vélo sécurisé',
+    aeroport:'Aéroport', tgv:'TGV', gare_routiere:'Gare routière', pole:"Pôle d'échange"};
 
-  let results = ARRETS_LIO.filter(a => a.name.toLowerCase().includes(q)).slice(0, 6);
+  // Recherche avec normalisation accent + tri par pertinence
+  let results = ARRETS_LIO
+    .filter(a => normaliser(a.name).includes(q))
+    .map(a => {
+      const n = normaliser(a.name);
+      let score = n.startsWith(q) ? 0 : n.split(/[\s\-]/).some(w => w.startsWith(q)) ? 1 : 2;
+      return { ...a, _score: score };
+    })
+    .sort((a, b) => a._score - b._score || a.name.localeCompare(b.name))
+    .slice(0, 8);
+
   if (typeof COVOIT_LIO !== 'undefined')
-    results.push(...COVOIT_LIO.filter(c=>c.name.toLowerCase().includes(q)).slice(0,2).map(c=>({...c,icon:'🚗',cat:'covoiturage'})));
+    results.push(...COVOIT_LIO.filter(c => normaliser(c.name).includes(q)).slice(0,2).map(c=>({...c,icon:'🚗',cat:'covoiturage',_score:3})));
   if (typeof VELO_LIO !== 'undefined')
-    results.push(...VELO_LIO.filter(v=>v.name.toLowerCase().includes(q)).slice(0,1).map(v=>({...v,icon:'🚲',cat:'velo'})));
+    results.push(...VELO_LIO.filter(v => normaliser(v.name).includes(q)).slice(0,1).map(v=>({...v,icon:'🚲',cat:'velo',_score:3})));
   if (typeof POIS_LIO !== 'undefined')
-    results.push(...POIS_LIO.filter(p=>p.name.toLowerCase().includes(q)).slice(0,2));
+    results.push(...POIS_LIO.filter(p => normaliser(p.name).includes(q)).slice(0,2).map(p=>({...p,_score:3})));
 
-  results.sort((a,b)=>(a.name.toLowerCase().startsWith(q)?0:1)-(b.name.toLowerCase().startsWith(q)?0:1));
-  results = results.slice(0,9);
+  results = results.slice(0, 9);
 
-  if (!results.length) { list.style.display='none'; return; }
+  if (!results.length) {
+    list.innerHTML = '<div class="autocomplete-item" style="color:var(--muted);font-style:italic;cursor:default;font-size:0.82rem">🔍 Recherche en cours…</div>';
+    list.style.display = 'block';
+    geocodeNominatimSuggest(raw, side, list);
+    return;
+  }
 
   list.innerHTML = results.map(r => {
     const catTag = r.cat ? `<span style="color:var(--muted);font-size:0.7rem;margin-left:4px">· ${catLabels[r.cat]||r.cat}</span>` : '';
     const deptTag = r.dept ? `<span style="color:var(--muted);font-size:0.7rem;margin-left:2px">(${r.dept})</span>` : '';
-    const sn = (r.name||'').replace(/'/g,"\'");
+    const sn = (r.name||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const display = highlightMatch(r.name, raw);
     return `<div class="autocomplete-item" onclick="selectStop('${side}','${sn}','${r.lat||0}','${r.lon||0}')">
-      <span class="ac-icon">${r.icon||'📍'}</span><span>${r.name}${catTag}${deptTag}</span>
+      <span class="ac-icon">${r.icon||'🚏'}</span><span>${display}${catTag}${deptTag}</span>
     </div>`;
   }).join('');
   list.style.display = 'block';
+
+  // Enrichissement Navitia (async silencieux)
+  enrichirAutocompleteNavitia(raw, side, list);
 }
 
+function highlightMatch(name, q) {
+  if (!q || !name) return name;
+  // Essai direct (insensible à la casse)
+  const lower = name.toLowerCase();
+  const qLower = q.toLowerCase();
+  const idx = lower.indexOf(qLower);
+  if (idx >= 0) {
+    return name.slice(0, idx) + '<strong>' + name.slice(idx, idx + q.length) + '</strong>' + name.slice(idx + q.length);
+  }
+  return name;
+}
+
+async function enrichirAutocompleteNavitia(q, side, listEl) {
+  try {
+    const data = await navitiaFetch(`places?q=${encodeURIComponent(q)}&type[]=stop_point&type[]=stop_area&count=5&depth=1`);
+    const places = (data.places || []).filter(p => p.name);
+    if (!places.length) return;
+    // Vérifier que l'input n'a pas changé
+    const inp = document.getElementById('input' + (side === 'from' ? 'From' : 'To'));
+    if (!inp || normaliser(inp.value).slice(0,2) !== normaliser(q).slice(0,2)) return;
+
+    const extra = places.map(p => {
+      const embedded = p.embedded_type;
+      const obj = p[embedded] || {};
+      const coords = obj.coord || p.stop_point?.coord || p.stop_area?.coord || {};
+      const lat = coords.lat || '';
+      const lon = coords.lon || '';
+      if (!lat || !lon) return '';
+      const name = p.name;
+      const sn = name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      return `<div class="autocomplete-item" style="border-top:1px solid var(--border)" onclick="selectStop('${side}','${sn}','${lat}','${lon}')">
+        <span class="ac-icon">🚌</span>
+        <span>${highlightMatch(name, q)} <span style="color:var(--green);font-size:0.68rem">· Navitia</span></span>
+      </div>`;
+    }).filter(Boolean).join('');
+
+    if (extra) {
+      const loading = listEl.querySelector('[style*="italic"]');
+      if (loading) loading.remove();
+      // Éviter les doublons
+      if (!listEl.innerHTML.includes(extra.slice(0, 30))) {
+        listEl.innerHTML += extra;
+      }
+      listEl.style.display = 'block';
+    }
+  } catch(e) {}
+}
+
+async function geocodeNominatimSuggest(q, side, listEl) {
+  try {
+    const r = await fetch(`${NOMINATIM_API}?q=${encodeURIComponent(q + ' Occitanie France')}&format=json&limit=5&countrycodes=fr&addressdetails=1`, {
+      headers: {'Accept-Language':'fr'}, signal: AbortSignal.timeout(4000)
+    });
+    const data = await r.json();
+    if (!data.length) { listEl.style.display = 'none'; return; }
+    listEl.innerHTML = data.map(item => {
+      const name = item.display_name.split(',').slice(0,2).join(',').trim();
+      const sn = name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      return `<div class="autocomplete-item" onclick="selectStop('${side}','${sn}','${item.lat}','${item.lon}')">
+        <span class="ac-icon">📍</span>
+        <span>${highlightMatch(name, q)} <span style="color:var(--muted);font-size:0.68rem">· Lieu</span></span>
+      </div>`;
+    }).join('');
+    listEl.style.display = 'block';
+    // Aussi enrichir depuis Navitia
+    enrichirAutocompleteNavitia(q, side, listEl);
+  } catch(e) { listEl.style.display = 'none'; }
+}
 function selectStopFromEl(el) {
   const side = el.dataset.side;
   const name = el.dataset.name;
@@ -1649,23 +1750,7 @@ function selectStopFromEl(el) {
   selectStop(side, name, lat, lon);
 }
 
-async function enrichirAutocompleteRegion(q, side, listEl) {
-  try {
-    const url = DATA_LAREGION_API + `/records?limit=5&where=search(stop_name,"${encodeURIComponent(q)}")&select=stop_id,stop_name,stop_lat,stop_lon`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
-    if (!r.ok) return;
-    const data = await r.json();
-    const stops = (data.results || []).filter(s => s.stop_name && s.stop_lat);
-    if (!stops.length) return;
-    const extra = stops.map(s => {
-      const sn = (s.stop_name||'').replace(/'/g,"\\'");
-      return `<div class="autocomplete-item" style="border-top:1px solid var(--border)" onclick="selectStop('${side}','${sn}','${s.stop_lat}','${s.stop_lon}')">
-        <span class="ac-icon">🚌</span><span>${s.stop_name} <span style="color:var(--green);font-size:0.72rem">· Mobby officiel</span></span>
-      </div>`;
-    }).join('');
-    listEl.innerHTML += extra;
-  } catch(e) {}
-}
+// enrichirAutocompleteRegion — remplacée par enrichirAutocompleteNavitia
 
 function selectStop(side, name, lat, lon) {
   if (side === 'from') {
