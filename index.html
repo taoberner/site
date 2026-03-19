@@ -1759,37 +1759,74 @@ function doRegister() {
   const cgu = document.getElementById('reg-cgu').checked;
   const errEl = document.getElementById('reg-error');
 
+  // Validation
+  errEl.style.display = 'none';
   if (!prenom || !email || !pwd) {
-    errEl.textContent = '⚠️ Veuillez remplir tous les champs obligatoires.';
+    errEl.textContent = 'Veuillez remplir tous les champs obligatoires.';
     errEl.style.display = 'block'; return;
   }
-  if (!email.includes('@')) {
-    errEl.textContent = '⚠️ Adresse e-mail invalide.';
+  if (!email.includes('@') || !email.includes('.')) {
+    errEl.textContent = 'Adresse e-mail invalide.';
     errEl.style.display = 'block'; return;
   }
   if (pwd.length < 8) {
-    errEl.textContent = '⚠️ Le mot de passe doit faire au moins 8 caractères.';
+    errEl.textContent = 'Le mot de passe doit faire au moins 8 caracteres.';
     errEl.style.display = 'block'; return;
   }
   if (!cgu) {
-    errEl.textContent = '⚠️ Vous devez accepter les conditions d'utilisation.';
+    errEl.textContent = 'Vous devez accepter les conditions utilisation.';
     errEl.style.display = 'block'; return;
   }
 
+  // Vérifier doublon
   const users = JSON.parse(localStorage.getItem('mobby_users') || '[]');
-  if (users.find(u => u.email === email)) {
-    errEl.textContent = '❌ Cet e-mail est déjà utilisé.';
+  if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    errEl.textContent = 'Cet e-mail est deja utilise. Connectez-vous !';
     errEl.style.display = 'block'; return;
   }
 
+  // Créer le compte
   const newUser = {prenom, nom, email, pwd: btoa(pwd), createdAt: Date.now()};
   users.push(newUser);
   localStorage.setItem('mobby_users', JSON.stringify(users));
   localStorage.setItem('mobby_session', JSON.stringify({...newUser, loginAt: Date.now()}));
-  errEl.style.display = 'none';
-  enterApp(prenom);
+
+  // Afficher confirmation email simulée
+  showEmailConfirmation(prenom, email);
 }
 
+function showEmailConfirmation(prenom, email) {
+  // Remplacer le formulaire par la confirmation
+  const formReg = document.getElementById('form-register');
+  formReg.innerHTML = `
+    <div style="text-align:center;padding:10px 0">
+      <div style="font-size:3.5rem;margin-bottom:16px">✉️</div>
+      <h3 style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800;margin-bottom:8px;color:var(--ink)">
+        Compte créé avec succès !
+      </h3>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:20px;line-height:1.6">
+        Bienvenue ${prenom} ! Votre compte Mobby est actif.<br>
+        <span style="color:#888;font-size:0.78rem">Un e-mail de confirmation serait envoyé à <strong>${email}</strong> dans une vraie application.</span>
+      </p>
+      <div style="background:#f0fff0;border:1.5px solid #b7eab7;border-radius:14px;padding:18px;margin-bottom:22px;text-align:left">
+        <div style="font-size:0.78rem;font-weight:700;color:#1a7a1a;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em">📧 Email de bienvenue (simulation)</div>
+        <div style="font-size:0.82rem;color:#2d5a2d;line-height:1.7">
+          <strong>De :</strong> noreply@mobby-occitanie.fr<br>
+          <strong>À :</strong> ${email}<br>
+          <strong>Objet :</strong> Bienvenue sur Mobby, ${prenom} !<br>
+          <hr style="border:none;border-top:1px solid #c0e8c0;margin:8px 0">
+          Bonjour ${prenom},<br><br>
+          Votre compte Mobby Occitanie est maintenant actif. Vous pouvez planifier vos trajets en bus sur tout le réseau Lio.<br><br>
+          <em style="color:#888">🔒 Connexion sécurisée · Données en France</em>
+        </div>
+      </div>
+      <button onclick="enterApp('${prenom}')"
+        style="width:100%;padding:13px;background:var(--green);color:white;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer">
+        Accéder à Mobby →
+      </button>
+    </div>
+  `;
+}
 function doSocialLogin(provider) {
   // Simulation connexion sociale
   const prenom = provider === 'France Connect' ? 'Citoyen' : 'Utilisateur';
