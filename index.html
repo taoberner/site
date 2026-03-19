@@ -3911,11 +3911,11 @@ function toggleAIChat() {
 
   if (aiChatOpen && !aiGreeted) {
     aiGreeted = true;
-    const hasKey = !!localStorage.getItem('mobby-anthropic-key');
+    const hasKey = !!localStorage.getItem('mobby-api-key');
     setTimeout(() => {
       aiAddMessage('bot', t('ai_greeting'));
       if (!hasKey) {
-        setTimeout(() => aiAddMessage('bot', '⚙️ **Configuration requise** : Pour utiliser l\'assistant IA, vous devez configurer une clé API Google Gemini.\n\n[BTN:Configurer ma clé API]'), 800);
+        setTimeout(() => aiAddMessage('bot', '⚙️ **Configuration requise** : Pour utiliser l\'assistant IA, entrez votre clé API Anthropic (Claude).\n\n[BTN:Configurer ma clé API]'), 800);
       }
     }, 300);
   }
@@ -4014,19 +4014,20 @@ function showApiKeyModal() {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
         <div style="background:var(--green-light);width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem">🔑</div>
         <div>
-          <h2 style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;margin:0">Clé API Anthropic</h2>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">Pour activer l'assistant IA</p>
+          <h2 style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;margin:0">Clé API Anthropic (Claude)</h2>
+          <p style="font-size:0.78rem;color:var(--muted);margin:0">Pour activer l'assistant IA Mobby</p>
         </div>
       </div>
       <div style="background:#f0f9f4;border-radius:12px;padding:14px;margin-bottom:16px;font-size:0.82rem;color:#155724;line-height:1.6">
-        <strong>Comment obtenir votre clé gratuite :</strong><br>
+        <strong>Comment obtenir votre clé :</strong><br>
         1. Allez sur <a href="https://console.anthropic.com" target="_blank" style="color:var(--green);font-weight:600">console.anthropic.com</a><br>
         2. Créez un compte → <strong>API Keys</strong> → <strong>Create Key</strong><br>
         3. Copiez la clé (commence par <code style="background:white;padding:1px 4px;border-radius:4px">sk-ant-...</code>)
       </div>
       <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." 
         style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:0.88rem;font-family:'DM Sans',sans-serif;box-sizing:border-box;outline:none;margin-bottom:12px"
-        onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+        onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'"
+        onkeydown="if(event.key==='Enter') saveApiKeyAndClose()">
       <p style="font-size:0.75rem;color:var(--muted);margin-bottom:16px">
         🔒 Votre clé est stockée uniquement dans votre navigateur (localStorage). Elle n'est jamais envoyée à nos serveurs.
       </p>
@@ -4052,7 +4053,7 @@ function saveApiKeyAndClose() {
     showNotification('⚠️ Clé invalide. Elle doit commencer par sk-ant-');
     return;
   }
-  localStorage.setItem('mobby-anthropic-key', key);
+  localStorage.setItem('mobby-api-key', key);
   document.getElementById('apiKeyModal')?.remove();
   showNotification('✅ Clé API enregistrée ! L\'assistant IA est maintenant actif.');
   aiAddMessage('bot', '✅ Clé API configurée ! Je suis maintenant opérationnel. Comment puis-je vous aider ?');
@@ -4067,7 +4068,6 @@ async function aiSend() {
   // Clé API depuis localStorage
   let apiKey = localStorage.getItem('mobby-api-key');
   if (!apiKey) {
-    // Afficher le formulaire de clé si pas encore affiché
     if (!document.getElementById('aiKeyBox')) {
       aiAskForKey();
     }
@@ -4093,34 +4093,37 @@ Pour proposer un trajet utilise [BTN:DEPART → ARRIVEE].
 Autres boutons : [BTN:Voir la carte] [BTN:Voir les lignes] [BTN:Page accessibilité].
 Sois concis et pratique. Langue actuelle : ${currentLang}.`;
 
-    // Google Gemini API (autorise les appels directs depuis le navigateur)
-    const geminiHistory = aiHistory.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
+    // Claude (Anthropic) API
+    const claudeMessages = aiHistory.map(m => ({
+      role: m.role === 'assistant' ? 'assistant' : 'user',
+      content: m.content
     }));
 
-    const res = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: geminiHistory,
-          generationConfig: { maxOutputTokens: 800, temperature: 0.7 }
-        })
-      }
-    );
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: claudeMessages
+      })
+    });
 
     const data = await res.json();
 
     if (!res.ok) {
       document.getElementById('aiTyping')?.remove();
-      if (res.status === 400 || res.status === 403) {
+      if (res.status === 401 || res.status === 403) {
         localStorage.removeItem('mobby-api-key');
-        aiAddMessage('bot', '🔑 Clé invalide. Clique sur 🔑 pour en entrer une nouvelle.');
+        aiAddMessage('bot', '🔑 Clé invalide ou expirée. Clique sur [BTN:Reconfigurer ma clé API] pour en entrer une nouvelle.\n\n[BTN:Reconfigurer ma clé API]');
       } else if (res.status === 429) {
-        aiAddMessage('bot', '⏳ Trop de requêtes. Attends quelques secondes.');
+        aiAddMessage('bot', '⏳ Trop de requêtes. Attends quelques secondes puis réessaie.');
       } else {
         aiAddMessage('bot', '❌ ' + (data?.error?.message || 'Erreur ' + res.status));
       }
@@ -4128,7 +4131,7 @@ Sois concis et pratique. Langue actuelle : ${currentLang}.`;
       return;
     }
 
-    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const reply = data?.content?.[0]?.text;
     if (!reply) {
       document.getElementById('aiTyping')?.remove();
       aiAddMessage('bot', '❌ Réponse vide. Réessaie.');
@@ -4153,7 +4156,6 @@ Sois concis et pratique. Langue actuelle : ${currentLang}.`;
 }
 
 function aiAskForKey() {
-  // Ne pas afficher en double
   if (document.getElementById('aiKeyBox')) return;
   const box = document.createElement('div');
   box.id = 'aiKeyBox';
@@ -4163,10 +4165,10 @@ function aiAskForKey() {
     <p style="margin:0 0 6px;font-size:0.85rem;font-weight:800">🔑 Clé API requise</p>
     <p style="margin:0 0 10px;font-size:0.78rem;color:#555;line-height:1.5">
       Pour activer l'IA, colle ta clé Anthropic ci-dessous.<br>
-      Obtiens-la gratuitement sur <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--green);font-weight:600">aistudio.google.com</a> (compte Google requis, 100% gratuit).
+      Obtiens-la sur <a href="https://console.anthropic.com" target="_blank" style="color:var(--green);font-weight:600">console.anthropic.com</a> → API Keys → Create Key.
     </p>
     <input id="aiKeyInput" type="password"
-      placeholder="AIzaSy-xxxxxxxxxxxx"
+      placeholder="sk-ant-api03-..."
       onkeydown="if(event.key==='Enter') aiSaveKey()"
       style="width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:0.82rem;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:8px;transition:border-color 0.2s"/>
     <button onclick="aiSaveKey()"
@@ -4184,8 +4186,8 @@ function aiAskForKey() {
 function aiSaveKey() {
   const input = document.getElementById('aiKeyInput');
   const key = input?.value.trim();
-  if (!key || key.length < 20) {
-    if (input) { input.style.borderColor = '#e74c3c'; input.focus(); }
+  if (!key || !key.startsWith('sk-ant-')) {
+    if (input) { input.style.borderColor = '#e74c3c'; input.placeholder = 'Clé invalide — doit commencer par sk-ant-'; input.focus(); }
     return;
   }
   localStorage.setItem('mobby-api-key', key);
@@ -4678,7 +4680,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="ai-chat-header-avatar">🤖</div>
     <div class="ai-chat-header-info">
       <h4>Assistant Mobby</h4>
-      <p id="aiStatusText">Propulsé par Gemini 2.0 Flash · En ligne</p>
+      <p id="aiStatusText">Propulsé par Claude · En ligne</p>
     </div>
     
     <button class="ai-chat-close" onclick="toggleAIChat()">✕</button>
