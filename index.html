@@ -3909,6 +3909,18 @@ function toggleAIChat() {
   icon.textContent = aiChatOpen ? '✕' : '🤖';
   notif.style.display = 'none';
 
+  // Délégation globale sur le conteneur messages (une seule fois)
+  if (aiChatOpen && !win._delegated) {
+    win._delegated = true;
+    document.getElementById('aiMessages').addEventListener('click', function(e) {
+      const btn = e.target.closest('.ai-action-btn[data-action]');
+      if (btn) {
+        e.stopPropagation();
+        aiHandleAction(btn.getAttribute('data-action'));
+      }
+    });
+  }
+
   if (aiChatOpen && !aiGreeted) {
     aiGreeted = true;
     const hasKey = !!localStorage.getItem('mobby-api-key');
@@ -3969,12 +3981,21 @@ function aiAddMessage(role, text) {
     .replace(/`(.+?)`/g, '<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:0.85em">$1</code>')
     .replace(/\n/g, '<br>');
 
-  // Extraire les boutons d'action (format: [ACTION:label:value])
+  // Convertir [BTN:label] en boutons avec data-action (pas d'onclick inline)
   rendered = rendered.replace(/\[BTN:([^\]]+)\]/g, (_, label) => {
-    return `<br><button class="ai-action-btn" onclick="aiHandleAction(${JSON.stringify(label)})">${label}</button>`;
+    return `<br><button class="ai-action-btn" data-action="${label.replace(/"/g,'&quot;')}">${label}</button>`;
   });
 
   el.innerHTML = rendered;
+
+  // Attacher les événements via addEventListener (fiable, pas d'inline onclick)
+  el.querySelectorAll('.ai-action-btn[data-action]').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      aiHandleAction(this.getAttribute('data-action'));
+    });
+  });
+
   container.appendChild(el);
   container.scrollTop = container.scrollHeight;
 }
@@ -3982,13 +4003,17 @@ function aiAddMessage(role, text) {
 function aiHandleAction(action) {
   const a = action.toLowerCase();
 
-  // Fonction pour fermer le chat proprement (sans toggle)
-  function closeChat() {
+  // Ferme le chat et navigue vers une page après la transition CSS
+  function closeAndGo(pageId) {
     aiChatOpen = false;
-    document.getElementById('aiChatWindow')?.classList.remove('open');
-    document.getElementById('aiBubbleBtn')?.classList.remove('open');
+    const win = document.getElementById('aiChatWindow');
+    const btn = document.getElementById('aiBubbleBtn');
     const icon = document.getElementById('aiBubbleIcon');
+    if (win) { win.classList.remove('open'); win.style.pointerEvents = 'none'; }
+    if (btn) btn.classList.remove('open');
     if (icon) icon.textContent = '🤖';
+    // Attendre la fin de la transition (250ms) puis changer de page
+    setTimeout(() => showPage(pageId), 300);
   }
 
   if (action.includes('→')) {
@@ -3998,24 +4023,23 @@ function aiHandleAction(action) {
       document.getElementById('inputTo').value = parts[1];
       state.fromLabel = parts[0]; state.toLabel = parts[1];
       state.fromCoords = null; state.toCoords = null;
-      closeChat();
-      showPage('search');
+      closeAndGo('search');
       showNotification('🚌 Trajet pré-rempli ! Cliquez sur Rechercher.');
     }
-  } else if (a.includes('trajet') || a.includes('recherch') || a.includes('planif')) {
-    closeChat(); showPage('search');
+  } else if (a.includes('aller') || a.includes('trajet') || a.includes('recherch') || a.includes('planif')) {
+    closeAndGo('search');
   } else if (a.includes('carte')) {
-    closeChat(); showPage('map');
+    closeAndGo('map');
   } else if (a.includes('ligne')) {
-    closeChat(); showPage('lignes');
+    closeAndGo('lignes');
   } else if (a.includes('accessib') || a.includes('pmr')) {
-    closeChat(); showPage('access');
+    closeAndGo('access');
   } else if (a.includes('clé') || a.includes('cle') || a.includes('api') || a.includes('configur') || a.includes('reconfig')) {
     showApiKeyModal();
   } else if (a.includes('billet') || a.includes('ticket')) {
-    closeChat(); showPage('billets');
+    closeAndGo('billets');
   } else if (a.includes('horaire') || a.includes('départ') || a.includes('depart')) {
-    closeChat(); showPage('search');
+    closeAndGo('search');
   }
 }
 
@@ -4106,14 +4130,20 @@ async function aiSend() {
 
     const systemPrompt = `Tu es l'assistant du réseau Mobby Occitanie. Tu parles la langue de l'utilisateur.
 Réseau : ${nbArrets} arrêts, ${nbLignes} lignes. Exemples : ${sampleLignes}.
-Pour proposer un trajet spécifique utilise exactement : [BTN:DEPART → ARRIVEE]
-Pour les boutons de navigation, utilise UNIQUEMENT ces labels exacts :
-- [BTN:Trouver un trajet] → ouvre la recherche
-- [BTN:Voir la carte] → ouvre la carte
-- [BTN:Voir les lignes] → ouvre les lignes
-- [BTN:Accessibilité PMR] → ouvre la page accessibilité
-- [BTN:Acheter un billet] → ouvre la billetterie
-Sois concis et pratique. Langue actuelle : ${currentLang}.`;
+
+RÈGLE ABSOLUE : N'utilise JAMAIS de HTML (<button>, <a>, <div>, etc.) dans tes réponses. Texte brut uniquement.
+Pour les boutons interactifs, utilise UNIQUEMENT ce format : [BTN:texte]
+
+Boutons autorisés (copie-les exactement) :
+- [BTN:Trouver un trajet]
+- [BTN:Voir la carte]
+- [BTN:Voir les lignes]
+- [BTN:Page accessibilité]
+- [BTN:Acheter un billet]
+- [BTN:Montpellier → Béziers] (exemple trajet — remplace les villes)
+
+Interdit : boutons avec d'autres textes, balises HTML, markdown avancé.
+Sois concis. Langue : ${currentLang}.`;
 
     // Claude (Anthropic) API
     const claudeMessages = aiHistory.map(m => ({
