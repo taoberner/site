@@ -1277,30 +1277,77 @@
 <!-- ===== PAGE 5 — LIGNES ===== -->
 <div id="page-lignes" class="page">
   <div style="padding:40px">
-    <div style="max-width:1100px;margin:0 auto">
-      <span class="section-label">Réseau BUS'UP / Mobby Béziers</span>
+    <div style="max-width:1200px;margin:0 auto">
+      <span class="section-label">Réseau Mobby Occitanie</span>
       <h1 style="font-size:2rem;font-weight:800;margin-bottom:8px">Lignes & Horaires</h1>
-      <p style="color:var(--muted);margin-bottom:32px">Toutes les lignes du réseau urbain de Béziers et liaisons Mobby interurbaines.</p>
+      <p style="color:var(--muted);margin-bottom:24px">Consultez les horaires en temps réel de toutes les lignes du réseau Mobby.</p>
 
-      <!-- Filtre -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px" id="lignesFilter">
-        <button class="pref-chip selected" onclick="filterLignesPage('tous',this)">🚌 Toutes</button>
-        <button class="pref-chip" onclick="filterLignesPage('urbain',this)">🏙️ Urbaines</button>
-        <button class="pref-chip" onclick="filterLignesPage('intercite',this)">🛣️ Intercités Mobby</button>
-        <button class="pref-chip" onclick="filterLignesPage('saisonnier',this)">☀️ Saisonnières</button>
+      <!-- Barre de recherche rapide -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;align-items:flex-end">
+        <div style="flex:1;min-width:200px">
+          <label style="font-size:0.8rem;font-weight:600;color:var(--ink-mid);display:block;margin-bottom:6px">🔍 Rechercher une ligne</label>
+          <input type="text" id="ligneSearch" placeholder="N° ou nom de ligne…" oninput="filtrerLignesTempsReel(this.value)"
+            style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;background:var(--bg);outline:none;box-sizing:border-box">
+        </div>
+        <div style="flex:1;min-width:200px">
+          <label style="font-size:0.8rem;font-weight:600;color:var(--ink-mid);display:block;margin-bottom:6px">🚏 Chercher un arrêt</label>
+          <input type="text" id="arretSearchLignes" placeholder="Nom d'arrêt…" oninput="rechercherArretHoraires(this.value)"
+            style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;background:var(--bg);outline:none;box-sizing:border-box">
+        </div>
+        <button onclick="chargerToutesLignesNavitia()" class="btn btn-primary btn-sm" style="white-space:nowrap">
+          🟢 Charger horaires temps réel
+        </button>
       </div>
 
-      <div id="lignesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px"></div>
+      <!-- Résultats recherche arrêt -->
+      <div id="arretSearchResults" style="display:none;background:white;border-radius:16px;border:1.5px solid var(--border);padding:16px;margin-bottom:20px">
+        <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:12px;color:var(--ink-mid)">Résultats — cliquez pour voir les prochains départs</h3>
+        <div id="arretSearchResultsList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px"></div>
+      </div>
+
+      <!-- Panneau horaires d'un arrêt -->
+      <div id="arretHorairesPanel" style="display:none;background:white;border-radius:16px;border:2px solid var(--green);padding:20px;margin-bottom:24px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+          <div>
+            <h3 id="arretHorairesNom" style="font-size:1rem;font-weight:800;margin-bottom:4px"></h3>
+            <div id="arretHorairesStatut" style="font-size:0.78rem;color:#1a7a1a;background:#e8f9e8;padding:2px 10px;border-radius:20px;display:inline-block"></div>
+          </div>
+          <button onclick="fermerArretHoraires()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--muted)">✕</button>
+        </div>
+        <div id="arretHorairesContenu" style="font-size:0.85rem"></div>
+      </div>
+
+      <!-- Filtres type de ligne -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px" id="lignesFilter">
+        <button class="pref-chip selected" onclick="filterLignesPage('tous',this)" data-filter="tous">🚌 Toutes</button>
+        <button class="pref-chip" onclick="filterLignesPage('intercite',this)" data-filter="intercite">🛣️ Intercités</button>
+        <button class="pref-chip" onclick="filterLignesPage('urbain',this)" data-filter="urbain">🏙️ Urbaines</button>
+        <button class="pref-chip" onclick="filterLignesPage('saisonnier',this)" data-filter="saisonnier">☀️ Saisonnières</button>
+      </div>
+
+      <!-- Statut chargement -->
+      <div id="lignesStatus" style="text-align:center;padding:16px;color:var(--muted);font-size:0.88rem;display:none">
+        <div class="loading-spinner" style="width:28px;height:28px;margin:0 auto 8px"></div>
+        <div id="lignesStatusText">Chargement des lignes…</div>
+      </div>
+
+      <!-- Grille des lignes -->
+      <div id="lignesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px"></div>
+
+      <!-- Section horaires d'une ligne sélectionnée -->
+      <div id="ligneHorairesSection" style="display:none;margin-top:32px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h2 id="ligneHorairesTitle" style="font-size:1.3rem;font-weight:800"></h2>
+          <button onclick="fermerLigneHoraires()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.82rem;color:var(--muted)">✕ Fermer</button>
+        </div>
+        <div id="ligneHorairesContenu"></div>
+      </div>
 
       <!-- Arrêts par commune -->
-      <h2 style="font-size:1.4rem;font-weight:800;margin:48px 0 16px;padding-bottom:12px;border-bottom:2px solid var(--green-light)">📍 Arrêts par zone</h2>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px" id="communesGrid"></div>
-
-      <!-- Recherche d'arrêt -->
-      <h2 style="font-size:1.4rem;font-weight:800;margin:48px 0 16px;padding-bottom:12px;border-bottom:2px solid var(--green-light)">🔍 Trouver un arrêt</h2>
-      <div style="position:relative;max-width:500px;margin-bottom:24px">
-        <input type="text" id="searchArret" placeholder="Ex : Foch, Hôpital, IUT…" oninput="searchArretPage(this.value)"
-          style="width:100%;padding:12px 16px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;background:var(--bg);outline:none">
+      <h2 style="font-size:1.3rem;font-weight:800;margin:40px 0 14px;padding-bottom:10px;border-bottom:2px solid var(--green-light)">📍 Trouver un arrêt par commune</h2>
+      <div style="position:relative;max-width:500px;margin-bottom:20px">
+        <input type="text" id="searchArret" placeholder="Ex : Montpellier, Béziers, Nîmes…" oninput="searchArretPage(this.value)"
+          style="width:100%;padding:12px 16px;border-radius:10px;border:1.5px solid var(--border);font-size:0.9rem;font-family:'DM Sans',sans-serif;background:var(--bg);outline:none;box-sizing:border-box">
       </div>
       <div id="arretResults" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px"></div>
     </div>
@@ -1857,14 +1904,58 @@ async function calculerItinerairesNavitia(from, to, date, time, fromLabel, toLab
       .filter(s => s.type === 'public_transport')
       .map(s => s.display_informations?.code || '?');
 
-    // Coords pour la carte (depuis les geojson des sections)
-    const coords = [];
+    // Coords pour la carte — extraire depuis GeoJSON de chaque section
+    // Structure: [{type, color, coords:[...]}] pour le rendu multi-couleur
+    const segmentsMap = [];
+    let allCoordsFlat = [];
     (j.sections || []).forEach(s => {
-      if (s.geojson && s.geojson.coordinates) {
-        s.geojson.coordinates.forEach(c => coords.push([c[1], c[0]]));
+      if (s.type === 'waiting') return;
+      const segCoords = [];
+      if (s.geojson && s.geojson.coordinates && s.geojson.coordinates.length) {
+        s.geojson.coordinates.forEach(c => {
+          // Navitia = [lon, lat], Leaflet = [lat, lon]
+          segCoords.push([c[1], c[0]]);
+        });
+      }
+      if (segCoords.length >= 2) {
+        const isWalk = s.type === 'street_network' || s.type === 'transfer' || s.type === 'crow_fly';
+        const sectionColor = isWalk ? '#f0a500' : lineColor(s);
+        segmentsMap.push({ type: isWalk ? 'walk' : 'bus', color: sectionColor, coords: segCoords });
+        allCoordsFlat.push(...segCoords);
       }
     });
-    if (!coords.length) coords.push([from.lat, from.lon], [to.lat, to.lon]);
+
+    // Si pas de coords GeoJSON → chercher dans GTFS local la ligne correspondante
+    if (!allCoordsFlat.length) {
+      const firstLine = lignes[0];
+      if (firstLine) {
+        const ligneGTFS = LIGNES_LIO.find(l => l.num === firstLine);
+        if (ligneGTFS && ligneGTFS.shape && ligneGTFS.shape.length > 1) {
+          // Trouver le segment de la ligne GTFS entre départ et arrivée
+          let minDep = Infinity, idxDep = 0;
+          let minArr = Infinity, idxArr = ligneGTFS.shape.length - 1;
+          ligneGTFS.shape.forEach((pt, i) => {
+            const dDep = distanceKm(from, {lat:pt[0],lon:pt[1]});
+            const dArr = distanceKm(to, {lat:pt[0],lon:pt[1]});
+            if (dDep < minDep) { minDep = dDep; idxDep = i; }
+            if (dArr < minArr) { minArr = dArr; idxArr = i; }
+          });
+          const iA = Math.min(idxDep, idxArr);
+          const iB = Math.max(idxDep, idxArr);
+          const seg = ligneGTFS.shape.slice(iA, iB + 1);
+          if (seg.length >= 2) {
+            const col = ligneGTFS.color || '#E31E24';
+            segmentsMap.push({ type: 'bus', color: col, coords: seg });
+            allCoordsFlat = seg;
+          }
+        }
+      }
+      // Vraiment rien → ligne droite
+      if (!allCoordsFlat.length) {
+        allCoordsFlat = [[from.lat, from.lon], [to.lat, to.lon]];
+        segmentsMap.push({ type: 'bus', color: '#E31E24', coords: allCoordsFlat });
+      }
+    }
 
     // Type de trajet
     let type = 'direct';
@@ -1880,7 +1971,8 @@ async function calculerItinerairesNavitia(from, to, date, time, fromLabel, toLab
       source: 'navitia-realtime',
       type,
       sections,
-      coords,
+      coords: allCoordsFlat,
+      segments: segmentsMap,
       hasRealtime: (j.sections || []).some(s => s.data_freshness === 'realtime')
     };
   }).filter(j => j.sections.length > 1);
@@ -1978,12 +2070,18 @@ async function calculerItinerairesGTFS(from, to, date, time, fromLabel, toLabel)
       distKm: dist, co2Bus: parseFloat((dist*CO2.bus/1000).toFixed(2)), co2Car: parseFloat((dist*CO2.voiture/1000).toFixed(2)),
       lignes: [ligne.num], source: 'gtfs-local', type: 'direct',
       sections: [
-        ...(wDep>0?[{type:'walk',time:minToTime(depMin),title:`🚶 Marche vers l\'arrêt`,desc:`${nearDep} · ${wDep} min`,duration:wDep}]:[]),
-        {type:'bus',time:depStr,title:`🚌 Ligne ${ligne.num} — ${ligne.nom}`,desc:`De ${nearDep} → ${nearArr}`,duration:busMin,color},
+        ...(wDep>0?[{type:'walk',time:minToTime(depMin),title:`🚶 Marche vers ${nearDep}`,desc:`${wDep} min à pied`,duration:wDep}]:[]),
+        {type:'bus',time:depStr,title:`🚌 Ligne ${ligne.num} — ${ligne.nom}`,desc:`${nearDep} → ${nearArr}`,duration:busMin,color},
         ...(wArr>0?[{type:'walk',time:minToTime(depMin+wDep+busMin),title:`🚶 Marche vers la destination`,desc:`${wArr} min à pied`,duration:wArr}]:[]),
         {type:'end',time:minToTime(arrMin),title:`📍 Arrivée — ${toLabel}`,desc:'Destination atteinte',duration:0}
       ],
-      coords: allCoords
+      coords: allCoords,
+      // Segments colorés pour la carte
+      segments: [
+        ...(wDep>0 ? [{type:'walk', color:'#f0a500', coords:[[from.lat,from.lon],[closestDep.pt[0],closestDep.pt[1]]]}] : []),
+        {type:'bus', color, coords: [[closestDep.pt[0],closestDep.pt[1]], ...segmentCoords, [closestArr.pt[0],closestArr.pt[1]]]},
+        ...(wArr>0 ? [{type:'walk', color:'#f0a500', coords:[[closestArr.pt[0],closestArr.pt[1]],[to.lat,to.lon]]}] : [])
+      ]
     });
     if (journeys.length >= 5) break;
   }
@@ -1991,36 +2089,29 @@ async function calculerItinerairesGTFS(from, to, date, time, fromLabel, toLabel)
 }
 
 function genererTrajetsFallback(from, to, date, time, fromLabel, toLabel) {
-  const [h, m] = time.split(':').map(Number);
-  const depMin = h*60+m;
-  const dist = Math.max(0.5, distanceKm(from, to));
-  const busMin = Math.max(5, Math.round(dist * 3.5));
-  const co2Bus = parseFloat((dist*CO2.bus/1000).toFixed(2));
-  const co2Car = parseFloat((dist*CO2.voiture/1000).toFixed(2));
-  const nearest = arretsProches(from, 1)[0];
-  return [{
-    durationMin:busMin+10, walkMin:10, transfers:0,
-    depTime:time, arrTime:minToTime(depMin+busMin+10),
-    distKm:Math.round(dist*10)/10, co2Bus, co2Car,
-    lignes:['Mobby'], source:'fallback', type:'direct',
-    sections:[
-      {type:'walk',time,title:`🚶 Marche vers l\'arrêt le plus proche`,desc:nearest?`${nearest.name} · 5 min`:'5 min',duration:5},
-      {type:'bus',time:minToTime(depMin+5),title:`🚌 Bus Mobby`,desc:`Distance : ${Math.round(dist*10)/10} km`,duration:busMin,color:'#1db37e'},
-      {type:'walk',time:minToTime(depMin+5+busMin),title:'🚶 Marche finale',desc:'5 min',duration:5},
-      {type:'end',time:minToTime(depMin+busMin+10),title:`📍 Arrivée — ${toLabel}`,desc:'Destination atteinte',duration:0}
-    ],
-    coords:[[from.lat,from.lon],[to.lat,to.lon]]
-  }];
+  // Ne plus générer de faux trajet "Bus Mobby" en ligne droite
+  // Retourner tableau vide → renderNoResults sera appelé
+  return [];
 }
 
 function renderNoResults(from, to) {
   document.getElementById('resultsRoute').textContent = `${from} → ${to}`;
   document.getElementById('resultsContent').innerHTML = `
-    <div style="text-align:center;padding:60px 20px">
-      <div style="font-size:3rem;margin-bottom:16px">🔍</div>
-      <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:8px">Aucun trajet trouvé</h2>
-      <p style="color:var(--muted);margin-bottom:24px">Aucune ligne Mobby ne relie ces deux points dans la base GTFS.<br>Essayez des arrêts plus proches d'une ligne existante.</p>
-      <button class="btn btn-primary" onclick="showPage('search')">← Modifier la recherche</button>
+    <div style="text-align:center;padding:60px 20px;max-width:500px;margin:0 auto">
+      <div style="font-size:3rem;margin-bottom:16px">🚌</div>
+      <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:12px">Aucun trajet trouvé</h2>
+      <p style="color:var(--muted);margin-bottom:20px;line-height:1.7">
+        Ni l'API Navitia ni les données GTFS locales n'ont trouvé de trajet entre ces deux points.
+        <br><br>
+        <strong>Conseils :</strong><br>
+        · Sélectionnez un arrêt exact depuis l'autocomplétion<br>
+        · Vérifiez l'orthographe du lieu<br>
+        · Essayez un point plus proche d'une ligne connue
+      </p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="showPage('search')">← Modifier la recherche</button>
+        <a href="https://lio.laregion.fr" target="_blank" class="btn btn-secondary">Consulter lio.laregion.fr →</a>
+      </div>
     </div>`;
 }
 
@@ -2372,7 +2463,29 @@ function drawJourneyOnMap(journey) {
   const allCoords = [];
 
   // ── Dessiner chaque section avec sa couleur ──
-  if (journey.sections && journey.coords && journey.coords.length > 1) {
+  if (journey.segments && journey.segments.length > 0) {
+    // Utiliser les segments précis (Navitia GeoJSON ou GTFS shape)
+    journey.segments.forEach(seg => {
+      if (!seg.coords || seg.coords.length < 2) return;
+      allCoords.push(...seg.coords);
+      if (seg.type === 'walk') {
+        const poly = L.polyline(seg.coords, {
+          color: '#f0a500', weight: 4, opacity: 0.9,
+          dashArray: '8, 8', smoothFactor: 1
+        }).addTo(state.map);
+        state.mapLayers.walk.push(poly);
+      } else {
+        const poly = L.polyline(seg.coords, {
+          color: seg.color || '#E31E24', weight: 6, opacity: 0.9, smoothFactor: 1
+        }).addTo(state.map);
+        // Trouver le nom de la section bus
+        const busSec = journey.sections.find(s => s.type === 'bus');
+        if (busSec) poly.bindTooltip(`🚌 ${busSec.title.replace('🚌 ','')}`, { sticky: true });
+        state.mapLayers.bus.push(poly);
+      }
+    });
+  } else if (journey.sections && journey.coords && journey.coords.length > 1) {
+    // Ancien fallback : découper coords par sections
     const sections = journey.sections.filter(s => s.type !== 'end');
     const totalCoords = journey.coords.length;
     let coordIdx = 0;
@@ -2388,26 +2501,23 @@ function drawJourneyOnMap(journey) {
       allCoords.push(...segCoords);
 
       if (s.type === 'walk' || s.type === 'crow_fly') {
-        // Marche = pointillés oranges
         const poly = L.polyline(segCoords, {
           color: '#f0a500', weight: 4, opacity: 0.9,
           dashArray: '8, 8', smoothFactor: 1
         }).addTo(state.map);
         state.mapLayers.walk.push(poly);
       } else {
-        // Bus = ligne pleine colorée
-        const col = s.color || '#1db37e';
+        const col = s.color || '#E31E24';
         const poly = L.polyline(segCoords, {
           color: col, weight: 6, opacity: 0.9, smoothFactor: 1
         }).addTo(state.map);
-        // Tooltip sur la ligne
         poly.bindTooltip(`🚌 ${s.title.replace('🚌 ','')}`, { sticky: true, className: 'leaflet-tooltip' });
         state.mapLayers.bus.push(poly);
       }
     });
   } else if (journey.coords && journey.coords.length > 1) {
-    // Fallback : une seule polyline verte
-    const poly = L.polyline(journey.coords, { color: '#1db37e', weight: 6, opacity: 0.9 }).addTo(state.map);
+    // Dernier recours : polyline simple
+    const poly = L.polyline(journey.coords, { color: '#E31E24', weight: 6, opacity: 0.9 }).addTo(state.map);
     state.mapLayers.bus.push(poly);
     allCoords.push(...journey.coords);
   }
@@ -2484,40 +2594,361 @@ function applyMapFilters() {
 /* =====================================================
    PAGE LIGNES
    ===================================================== */
-function renderLignesPage() {
-  const grid = document.getElementById('lignesGrid');
-  if (!grid || grid.dataset.rendered) return;
-  grid.dataset.rendered = '1';
+/* =====================================================
+   🟢 LIGNES & HORAIRES — Temps réel via Navitia
+   ===================================================== */
 
-  // Trier les lignes par numéro
+// Stocker les lignes chargées depuis Navitia
+let _lignesNavitia = [];
+let _lignesRendered = false;
+
+function renderLignesPage() {
+  if (_lignesRendered) return;
+  _lignesRendered = true;
+  // Afficher d'abord les lignes GTFS locales
+  afficherLignesLocales();
+  // Puis essayer de charger depuis Navitia
+  chargerToutesLignesNavitia();
+}
+
+function afficherLignesLocales() {
+  const grid = document.getElementById('lignesGrid');
+  if (!grid) return;
   const lignes = [...LIGNES_LIO].sort((a,b) => {
-    const na = parseInt(a.num) || 9999, nb = parseInt(b.num) || 9999;
+    const na = parseInt(a.num)||9999, nb = parseInt(b.num)||9999;
     return na - nb || a.num.localeCompare(b.num);
   });
-
   grid.innerHTML = '';
-  lignes.forEach(l => {
-    const color = l.color || '#1db37e';
-    const card = document.createElement('div');
-    card.style.cssText = 'background:white;border-radius:16px;border:1.5px solid var(--border);padding:18px;cursor:pointer;transition:all 0.2s';
-    card.onmouseover = () => card.style.borderColor = color;
-    card.onmouseleave = () => card.style.borderColor = 'var(--border)';
-    card.dataset.ligneIdx = JSON.stringify({id:l.id,num:l.num,nom:l.nom,color:l.color,shape:l.shape});
-    card.onclick = () => showLigneOnMap(l);
-    card.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="background:${color};color:white;font-family:'Syne',sans-serif;font-weight:800;font-size:0.85rem;padding:5px 12px;border-radius:100px;flex-shrink:0;white-space:nowrap">${l.num}</div>
-        <div style="font-weight:700;font-size:0.85rem;line-height:1.3">${l.nom}</div>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <button class="btn-voir-trace" style="flex:1;padding:6px;background:${color}22;color:${color};border:1px solid ${color};border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600">
-          🗺️ Voir tracé</button>
-        <button class="btn-planifier" style="flex:1;padding:6px;background:#f7fbf9;color:#159b68;border:1px solid #d4ede4;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600">
-          🔍 Planifier</button>
+  lignes.forEach(l => afficherCarteLigne(l, grid, 'local'));
+}
+
+function afficherCarteLigne(l, container, source) {
+  const color = l.color || l.colour ? '#' + (l.colour||l.color||'E31E24').replace('#','') : '#E31E24';
+  const num = l.num || l.code || l.id || '?';
+  const nom = l.nom || l.name || l.label || '';
+  const card = document.createElement('div');
+  card.className = 'ligne-card';
+  card.dataset.num = num;
+  card.dataset.nom = nom.toLowerCase();
+  card.dataset.source = source;
+  card.style.cssText = 'background:white;border-radius:16px;border:1.5px solid var(--border);padding:18px;cursor:pointer;transition:all 0.2s;position:relative';
+  card.onmouseover = () => card.style.borderColor = color;
+  card.onmouseleave = () => card.style.borderColor = 'var(--border)';
+
+  const srcBadge = source === 'navitia'
+    ? '<span style="position:absolute;top:10px;right:10px;font-size:0.65rem;background:#e8f9e8;color:#1a7a1a;padding:2px 6px;border-radius:8px">🟢 temps réel</span>'
+    : '<span style="position:absolute;top:10px;right:10px;font-size:0.65rem;background:#fff8e0;color:#b37a00;padding:2px 6px;border-radius:8px">📦 local</span>';
+
+  card.innerHTML = `
+    ${srcBadge}
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="background:${color};color:white;font-family:'Syne',sans-serif;font-weight:800;font-size:0.85rem;padding:5px 12px;border-radius:100px;flex-shrink:0;white-space:nowrap">${num}</div>
+      <div style="font-weight:700;font-size:0.85rem;line-height:1.3;padding-right:60px">${nom}</div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn-horaires-rt" style="flex:1;padding:7px;background:${color}22;color:${color};border:1px solid ${color};border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600">
+        🕐 Horaires temps réel</button>
+      <button class="btn-voir-trace" style="flex:1;padding:7px;background:#f0f0ff;color:#555;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600">
+        🗺️ Tracé</button>
+      <button class="btn-planifier" style="flex:1;padding:7px;background:#f7fbf9;color:#159b68;border:1px solid #d4ede4;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600">
+        🔍 Planifier</button>
+    </div>`;
+
+  card.querySelector('.btn-horaires-rt').addEventListener('click', e => {
+    e.stopPropagation();
+    chargerHorairesLigne(l, num, nom, color);
+  });
+  card.querySelector('.btn-voir-trace').addEventListener('click', e => { e.stopPropagation(); showLigneOnMap(l); });
+  card.querySelector('.btn-planifier').addEventListener('click', e => { e.stopPropagation(); useLineAsSearch(num, nom, color); });
+  container.appendChild(card);
+}
+
+// Charger toutes les lignes depuis Navitia
+async function chargerToutesLignesNavitia() {
+  const status = document.getElementById('lignesStatus');
+  const statusText = document.getElementById('lignesStatusText');
+  const grid = document.getElementById('lignesGrid');
+  if (!grid || !status) return;
+
+  status.style.display = 'block';
+  statusText.textContent = '🟢 Connexion à Navitia en cours…';
+
+  try {
+    const data = await navitiaFetch('lines?count=100&depth=0&disable_disruption=false');
+    const lines = data.lines || [];
+    if (!lines.length) throw new Error('Aucune ligne reçue');
+
+    _lignesNavitia = lines;
+
+    // Vider la grille et afficher les lignes Navitia
+    grid.innerHTML = '';
+    const linesSorted = [...lines].sort((a,b) => {
+      const na = parseInt(a.code)||9999, nb = parseInt(b.code)||9999;
+      return na - nb || (a.code||'').localeCompare(b.code||'');
+    });
+
+    linesSorted.forEach(l => {
+      const ligne = {
+        id: l.id,
+        num: l.code || l.label || '?',
+        nom: l.name || '',
+        color: l.color ? '#' + l.color : '#E31E24',
+        shape: null,
+        navitiaId: l.id
+      };
+      afficherCarteLigne(ligne, grid, 'navitia');
+    });
+
+    status.style.display = 'none';
+    showNotification(`✅ ${linesSorted.length} lignes chargées en temps réel`);
+  } catch(e) {
+    statusText.textContent = '📦 Navitia indisponible — données locales affichées';
+    status.style.display = 'block';
+    setTimeout(() => { status.style.display = 'none'; }, 4000);
+    // Garder les lignes locales déjà affichées
+    if (!grid.children.length) afficherLignesLocales();
+  }
+}
+
+// Charger les horaires temps réel d'une ligne
+async function chargerHorairesLigne(ligne, num, nom, color) {
+  const section = document.getElementById('ligneHorairesSection');
+  const title = document.getElementById('ligneHorairesTitle');
+  const contenu = document.getElementById('ligneHorairesContenu');
+  if (!section || !contenu) return;
+
+  section.style.display = 'block';
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  title.innerHTML = `<span style="background:${color};color:white;padding:3px 10px;border-radius:8px;font-size:0.9rem;margin-right:8px">${num}</span> ${nom}`;
+  contenu.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted)">
+    <div class="loading-spinner" style="width:32px;height:32px;margin:0 auto 12px"></div>
+    🔄 Chargement des horaires en temps réel…
+  </div>`;
+
+  try {
+    // Récupérer les arrêts de la ligne
+    let stopPoints = [];
+    let ligneId = ligne.navitiaId || ligne.id;
+
+    if (ligneId) {
+      try {
+        const stopsData = await navitiaFetch(`lines/${encodeURIComponent(ligneId)}/stop_points?count=50&depth=1`);
+        stopPoints = stopsData.stop_points || [];
+      } catch(e) {}
+    }
+
+    if (!stopPoints.length) {
+      // Fallback : chercher par code ligne
+      try {
+        const stopsData = await navitiaFetch(`stop_points?filter=line.code=${encodeURIComponent(num)}&count=30`);
+        stopPoints = stopsData.stop_points || [];
+      } catch(e) {}
+    }
+
+    if (!stopPoints.length) {
+      contenu.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted)">
+        <div style="font-size:2rem;margin-bottom:8px">📦</div>
+        <p>Horaires temps réel non disponibles pour cette ligne via l'API.<br>
+        <a href="https://lio.laregion.fr" target="_blank" style="color:var(--green)">Consulter lio.laregion.fr →</a></p>
       </div>`;
-    card.querySelector('.btn-voir-trace').addEventListener('click', e => { e.stopPropagation(); showLigneOnMap(l); });
-    card.querySelector('.btn-planifier').addEventListener('click', e => { e.stopPropagation(); useLineAsSearch(l.num, l.nom, color); });
-    grid.appendChild(card);
+      return;
+    }
+
+    // Pour chaque arrêt (limité à 10), récupérer les prochains départs
+    const arretSlice = stopPoints.slice(0, 10);
+    const departsParArret = await Promise.all(
+      arretSlice.map(async sp => {
+        try {
+          const deps = await getProchainsDepartsArret(sp.id);
+          return { stop: sp, departs: deps.filter(d => d.line === num || !num).slice(0, 5) };
+        } catch(e) { return { stop: sp, departs: [] }; }
+      })
+    );
+
+    // Rendu
+    const now = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+    let html = `
+      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px">
+        <span style="background:#e8f9e8;color:#1a7a1a;padding:2px 8px;border-radius:10px">🟢 Données en temps réel</span>
+        <span>Mis à jour à ${now} · ${stopPoints.length} arrêts sur la ligne</span>
+      </div>
+      <div style="display:grid;gap:12px">`;
+
+    departsParArret.forEach(({ stop, departs }) => {
+      const stopName = stop.name || stop.id;
+      const hasDeparts = departs.length > 0;
+      html += `
+        <div style="background:#f9f9f9;border-radius:12px;padding:14px;border:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:${hasDeparts ? '10px' : '0'}">
+            <span style="background:${color};color:white;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700">${num}</span>
+            <strong style="font-size:0.88rem">${stopName}</strong>
+            <button onclick="voirHorairesArret('${stop.id}','${stopName.replace(/'/g,"\\'")}',this)"
+              style="margin-left:auto;font-size:0.72rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:white;cursor:pointer;color:var(--ink-mid)">
+              🕐 Tous départs
+            </button>
+          </div>`;
+
+      if (hasDeparts) {
+        html += `<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+        departs.forEach(d => {
+          html += `
+            <div style="background:${d.realtime ? '#f0fff0' : '#f8f8f8'};border:1px solid ${d.realtime ? '#c0e8c0' : '#ddd'};border-radius:8px;padding:5px 10px;font-size:0.8rem;text-align:center;min-width:60px">
+              <div style="font-weight:700;font-size:0.92rem;color:${d.delay ? '#c0392b' : 'var(--ink)'}">${d.time}</div>
+              <div style="font-size:0.65rem;color:${d.realtime ? '#1a7a1a' : 'var(--muted)'}">${d.realtime ? '🟢' : '📅'}</div>
+              ${d.delay ? `<div style="font-size:0.62rem;color:#c0392b">${d.delay}</div>` : ''}
+            </div>`;
+        });
+        html += `</div>`;
+      } else {
+        html += `<span style="font-size:0.8rem;color:var(--muted);font-style:italic">Aucun départ imminent</span>`;
+      }
+
+      html += `</div>`;
+    });
+
+    if (stopPoints.length > 10) {
+      html += `<div style="text-align:center;padding:10px;color:var(--muted);font-size:0.82rem">
+        … et ${stopPoints.length - 10} autres arrêts sur la ligne
+      </div>`;
+    }
+
+    html += `</div>`;
+    contenu.innerHTML = html;
+
+    // Auto-refresh toutes les 60 secondes
+    setTimeout(() => chargerHorairesLigne(ligne, num, nom, color), 60000);
+
+  } catch(e) {
+    contenu.innerHTML = `<div style="padding:20px;color:var(--muted);text-align:center">
+      ⚠️ Impossible de charger les horaires en temps réel.<br>
+      <small>${e.message}</small><br><br>
+      <a href="https://lio.laregion.fr" target="_blank" style="color:var(--green)">Consulter lio.laregion.fr →</a>
+    </div>`;
+  }
+}
+
+// Voir tous les horaires d'un arrêt (bouton dans les horaires de ligne)
+async function voirHorairesArret(stopId, stopName, btn) {
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    const departs = await getProchainsDepartsArret(stopId);
+    afficherPanneauArret(stopId, stopName, departs);
+  } catch(e) {
+    showNotification('❌ Impossible de récupérer les horaires de cet arrêt.');
+  }
+  if (btn) { btn.textContent = '🕐 Tous départs'; btn.disabled = false; }
+}
+
+// Afficher le panneau horaires d'un arrêt
+function afficherPanneauArret(stopId, stopName, departs) {
+  const panel = document.getElementById('arretHorairesPanel');
+  const nom = document.getElementById('arretHorairesNom');
+  const statut = document.getElementById('arretHorairesStatut');
+  const contenu = document.getElementById('arretHorairesContenu');
+  if (!panel || !contenu) return;
+
+  nom.textContent = `🚏 ${stopName}`;
+  const now = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+  statut.textContent = `🟢 Mis à jour à ${now}`;
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth' });
+
+  if (!departs.length) {
+    contenu.innerHTML = '<p style="color:var(--muted);font-style:italic">Aucun départ prévu dans les prochaines minutes.</p>';
+    return;
+  }
+
+  const rows = departs.map(d => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:10px;background:${d.realtime ? '#f0fff0' : '#f8f8f8'};border:1px solid ${d.realtime ? '#c0e8c0' : 'var(--border)'};margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="background:var(--green);color:white;padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:700">${d.line}</span>
+        <span style="font-size:0.85rem;color:var(--ink-mid)">${d.direction}</span>
+      </div>
+      <div style="text-align:right">
+        <span style="font-weight:700;font-size:1rem;color:${d.delay ? '#c0392b' : 'var(--ink)'}">${d.time}</span>
+        <span style="display:block;font-size:0.65rem;color:${d.realtime ? '#1a7a1a' : 'var(--muted)'}">${d.realtime ? '🟢 temps réel' : '📅 prévu'}</span>
+        ${d.delay ? `<span style="font-size:0.65rem;color:#c0392b">${d.delay}</span>` : ''}
+      </div>
+    </div>`).join('');
+
+  contenu.innerHTML = rows + `
+    <div style="margin-top:10px;font-size:0.72rem;color:var(--muted);text-align:right">
+      ${departs.length} prochain(s) départ(s) · Rafraîchissement automatique dans 30s
+    </div>`;
+
+  // Auto-refresh
+  setTimeout(async () => {
+    try {
+      const newDeparts = await getProchainsDepartsArret(stopId);
+      afficherPanneauArret(stopId, stopName, newDeparts);
+    } catch(e) {}
+  }, 30000);
+}
+
+function fermerArretHoraires() {
+  const panel = document.getElementById('arretHorairesPanel');
+  if (panel) panel.style.display = 'none';
+}
+
+function fermerLigneHoraires() {
+  const section = document.getElementById('ligneHorairesSection');
+  if (section) section.style.display = 'none';
+}
+
+// Recherche d'arrêt avec horaires
+async function rechercherArretHoraires(q) {
+  const results = document.getElementById('arretSearchResults');
+  const list = document.getElementById('arretSearchResultsList');
+  if (!q || q.length < 2) { results.style.display = 'none'; return; }
+
+  // Chercher dans GTFS local d'abord
+  const found = ARRETS_LIO.filter(a => a.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+
+  if (!found.length) { results.style.display = 'none'; return; }
+
+  results.style.display = 'block';
+  list.innerHTML = found.map(a => `
+    <div onclick="rechercherEtAfficherArret('${a.id}','${a.name.replace(/'/g,"\\'")}','${a.lat}','${a.lon}')"
+      style="background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.15s"
+      onmouseover="this.style.borderColor='var(--green)'" onmouseleave="this.style.borderColor='var(--border)'">
+      <span style="font-size:1.1rem">${a.icon||'🚏'}</span>
+      <div>
+        <div style="font-size:0.85rem;font-weight:600">${a.name}</div>
+        <div style="font-size:0.72rem;color:var(--muted)">${a.dept ? 'Dept. '+a.dept : 'Arrêt Mobby'}</div>
+      </div>
+      <span style="margin-left:auto;font-size:0.7rem;color:var(--green)">→ Horaires</span>
+    </div>`).join('');
+}
+
+async function rechercherEtAfficherArret(id, name, lat, lon) {
+  document.getElementById('arretSearchResults').style.display = 'none';
+  document.getElementById('arretSearchLignes').value = name;
+
+  showNotification(`🔄 Chargement des horaires de "${name}"…`);
+
+  try {
+    // Chercher l'arrêt Navitia le plus proche via coords
+    const arretsNavitia = await rechercherArretsNavitia(parseFloat(lat), parseFloat(lon), 200);
+    if (arretsNavitia.length) {
+      const departs = await getProchainsDepartsArret(arretsNavitia[0].id);
+      afficherPanneauArret(arretsNavitia[0].id, name, departs);
+    } else {
+      // Fallback sur l'id GTFS local
+      const departs = await getProchainsDepartsArret(id);
+      afficherPanneauArret(id, name, departs);
+    }
+  } catch(e) {
+    showNotification('⚠️ Horaires indisponibles pour cet arrêt.');
+  }
+}
+
+function filtrerLignesTempsReel(q) {
+  const cards = document.querySelectorAll('#lignesGrid .ligne-card');
+  q = q.toLowerCase().trim();
+  cards.forEach(card => {
+    const num = (card.dataset.num||'').toLowerCase();
+    const nom = (card.dataset.nom||'').toLowerCase();
+    card.style.display = (!q || num.includes(q) || nom.includes(q)) ? 'block' : 'none';
   });
 }
 
@@ -2525,24 +2956,22 @@ function showLigneOnMap(l) {
   showPage('map');
   setTimeout(() => {
     if (!state.map) initMap();
-    // Nettoyer carte
     state.mapLayers.bus.forEach(layer => state.map.removeLayer(layer));
     state.mapLayers.markers.forEach(layer => state.map.removeLayer(layer));
     state.mapLayers = { bus: [], walk: [], markers: [] };
 
     if (l.shape && l.shape.length > 1) {
-      const color = l.color || '#1db37e';
+      const color = l.color || '#E31E24';
       const poly = L.polyline(l.shape, { color, weight: 5, opacity: 0.9 }).addTo(state.map);
       state.mapLayers.bus.push(poly);
       state.map.fitBounds(poly.getBounds(), { padding: [40,40] });
       poly.bindTooltip(`🚌 Ligne ${l.num} — ${l.nom}`, { permanent: false, sticky: true });
-
-      // Ajouter marqueurs départ/arrivée du tracé
       const mkDep = L.circleMarker(l.shape[0], {radius:8,color:'white',fillColor:color,fillOpacity:1,weight:2}).addTo(state.map);
       const mkArr = L.circleMarker(l.shape[l.shape.length-1], {radius:8,color:'white',fillColor:'#0d1f1a',fillOpacity:1,weight:2}).addTo(state.map);
       state.mapLayers.markers.push(mkDep, mkArr);
-
       document.getElementById('mapSubtitle').textContent = `Ligne ${l.num} — ${l.nom}`;
+    } else {
+      showNotification('🗺️ Tracé non disponible pour cette ligne.');
     }
   }, 300);
 }
@@ -2555,8 +2984,9 @@ function useLineAsSearch(num, nom, color) {
 function filterLignesPage(type, btn) {
   document.querySelectorAll('#lignesFilter button').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  document.querySelectorAll('#lignesGrid > div').forEach(card => {
-    card.style.display = (type === 'tous' || card.dataset.type === type) ? 'block' : 'none';
+  document.querySelectorAll('#lignesGrid .ligne-card').forEach(card => {
+    const show = type === 'tous' || card.dataset.type === type;
+    card.style.display = show ? 'block' : 'none';
   });
 }
 
